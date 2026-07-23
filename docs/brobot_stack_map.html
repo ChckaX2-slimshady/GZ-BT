@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BROBOT // STACK MAP</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --bg:#070a0f;
+    --panel:#0c1118;
+    --panel-2:#0f1620;
+    --line:#1c2733;
+    --line-bright:#28384a;
+    --txt:#e6edf3;
+    --dim:#8190a0;
+    --faint:#56657a;
+    /* status */
+    --live:#4fd6c4;        /* exists / operational */
+    --live-bg:rgba(79,214,196,.07);
+    --build:#f5b544;       /* to-build / designed */
+    --build-bg:rgba(245,181,68,.07);
+    --later:#9b8cff;       /* later / optional */
+    --later-bg:rgba(155,140,255,.06);
+    --mono:'JetBrains Mono', ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(79,214,196,.05), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(155,140,255,.05), transparent 60%),
+      var(--bg);
+    background-attachment:fixed;
+    color:var(--txt);
+    font-family:var(--mono);
+    line-height:1.5;
+    padding:clamp(14px,4vw,40px);
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* fine grid texture */
+  body::before{
+    content:"";
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:46px 46px;
+    opacity:.18;
+    mask-image:radial-gradient(circle at 50% 40%, black, transparent 90%);
+  }
+
+  .wrap{position:relative; z-index:1; max-width:920px; margin:0 auto;}
+
+  /* ---- header ---- */
+  header{
+    border:1px solid var(--line-bright);
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    padding:clamp(16px,3vw,26px);
+    margin-bottom:18px;
+    position:relative;
+    overflow:hidden;
+    opacity:0; animation:rise .6s ease forwards;
+  }
+  header::after{
+    content:""; position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, var(--live), var(--build) 55%, var(--later));
+  }
+  .eyebrow{font-size:10px; letter-spacing:.32em; color:var(--faint); text-transform:uppercase;}
+  h1{
+    font-size:clamp(22px,6vw,40px); font-weight:700; letter-spacing:-.01em;
+    margin:6px 0 2px; line-height:1.05;
+  }
+  h1 .slash{color:var(--live);}
+  .tagline{color:var(--dim); font-size:clamp(11px,2.6vw,13px); max-width:60ch;}
+  .frame-note{
+    margin-top:14px; padding-top:12px; border-top:1px dashed var(--line-bright);
+    font-size:11px; color:var(--dim); display:flex; flex-wrap:wrap; gap:6px 18px;
+  }
+  .frame-note b{color:var(--live); font-weight:500;}
+
+  /* ---- legend ---- */
+  .legend{
+    display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:14px;
+    font-size:11px; color:var(--dim);
+  }
+  .key{display:flex; align-items:center; gap:7px;}
+  .dot{width:9px; height:9px; border:1px solid; flex:none;}
+  .dot.live{border-color:var(--live); background:var(--live-bg); box-shadow:0 0 8px rgba(79,214,196,.5);}
+  .dot.build{border-color:var(--build); background:var(--build-bg);}
+  .dot.later{border-color:var(--later); background:var(--later-bg);}
+
+  /* ---- strata ---- */
+  .stratum{
+    border:1px solid var(--line);
+    background:var(--panel);
+    margin-bottom:10px;
+    padding:13px clamp(12px,2.5vw,18px) 15px;
+    position:relative;
+    opacity:0; animation:rise .55s ease forwards;
+  }
+  .stratum::before{
+    content:attr(data-l);
+    position:absolute; top:11px; right:12px;
+    font-size:10px; letter-spacing:.2em; color:var(--faint);
+  }
+  .s-title{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--txt); margin-bottom:2px; font-weight:500;
+  }
+  .s-sub{font-size:10.5px; color:var(--faint); margin-bottom:11px;}
+
+  .row{display:flex; flex-wrap:wrap; gap:7px;}
+
+  .node{
+    border:1px solid var(--line-bright);
+    background:var(--panel-2);
+    padding:7px 11px;
+    font-size:11.5px;
+    display:flex; flex-direction:column; gap:1px;
+    min-width:0; flex:1 1 auto;
+    transition:transform .15s ease, border-color .15s ease;
+  }
+  .node:hover{transform:translateY(-2px);}
+  .node .n-name{font-weight:500; letter-spacing:.01em;}
+  .node .n-meta{font-size:9.5px; color:var(--faint); letter-spacing:.04em; text-transform:uppercase;}
+
+  .node.live{border-left:3px solid var(--live); background:linear-gradient(90deg,var(--live-bg),var(--panel-2) 60%);}
+  .node.live:hover{border-color:var(--live);}
+  .node.live .n-name::after{content:" ●"; color:var(--live); font-size:8px; vertical-align:middle;}
+  .node.build{border-left:3px solid var(--build); background:linear-gradient(90deg,var(--build-bg),var(--panel-2) 60%);}
+  .node.build:hover{border-color:var(--build);}
+  .node.later{border-left:3px solid var(--later); background:linear-gradient(90deg,var(--later-bg),var(--panel-2) 60%);}
+  .node.later:hover{border-color:var(--later);}
+
+  /* keystone marker */
+  .keystone{
+    margin-top:11px; padding:9px 12px;
+    border:1px dashed var(--build);
+    background:var(--build-bg);
+    font-size:11px; color:var(--build); letter-spacing:.02em;
+    display:flex; gap:9px; align-items:baseline;
+  }
+  .keystone b{color:var(--txt); font-weight:700; letter-spacing:.1em; font-size:10px; white-space:nowrap;}
+
+  /* flow connector between strata */
+  .flow{
+    text-align:center; color:var(--faint); font-size:13px;
+    line-height:1; margin:-3px 0 7px; opacity:0; animation:fade .5s ease forwards;
+  }
+
+  /* divisions band */
+  .divisions{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:11px;}
+  .div{
+    flex:1 1 140px; border:1px solid var(--line-bright); background:var(--panel-2);
+    padding:8px 11px; font-size:11px;
+  }
+  .div .d-tag{font-size:9px; letter-spacing:.2em; color:var(--faint); display:block; margin-bottom:2px;}
+  .div .d-name{font-weight:500;}
+  .div.a1{border-top:2px solid #4fd6c4;}
+  .div.a2{border-top:2px solid #f5b544;}
+  .div.a3{border-top:2px solid #ff7a7a;}
+  .div.a4{border-top:2px solid #9b8cff;}
+
+  .pipeline{
+    display:flex; flex-wrap:wrap; align-items:center; gap:6px;
+    font-size:11px; color:var(--dim); margin-top:4px;
+  }
+  .stage{border:1px solid var(--line-bright); background:var(--panel-2); padding:6px 10px; white-space:nowrap;}
+  .stage.you{border-color:var(--live); color:var(--live);}
+  .arr{color:var(--faint);}
+
+  .loop-note{
+    margin-top:10px; padding:9px 12px; border:1px solid var(--line);
+    background:repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(155,140,255,.04) 6px, rgba(155,140,255,.04) 12px);
+    font-size:10.5px; color:var(--dim);
+  }
+  .loop-note b{color:var(--later);}
+
+  /* footer constraints */
+  .constraints{
+    border:1px solid var(--line-bright); background:var(--panel);
+    margin-top:18px; padding:clamp(14px,3vw,20px);
+    opacity:0; animation:rise .55s ease forwards;
+  }
+  .c-title{font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--build); margin-bottom:12px;}
+  .c-item{display:flex; gap:11px; padding:8px 0; border-top:1px solid var(--line); font-size:11.5px; color:var(--dim);}
+  .c-item:first-of-type{border-top:none;}
+  .c-item .c-k{color:var(--live); flex:none; width:22px; font-weight:700;}
+  .c-item b{color:var(--txt); font-weight:500;}
+
+  footer{margin-top:16px; text-align:center; font-size:9.5px; letter-spacing:.18em; color:var(--faint); text-transform:uppercase;}
+
+  /* boot stagger */
+  header{animation-delay:.02s}
+  .stratum:nth-of-type(1){animation-delay:.10s}
+  .s2{animation-delay:.16s} .s3{animation-delay:.22s} .s4{animation-delay:.28s}
+  .s5{animation-delay:.34s} .s6{animation-delay:.40s} .s7{animation-delay:.46s}
+  .constraints{animation-delay:.54s}
+
+  @keyframes rise{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
+  @keyframes fade{from{opacity:0;} to{opacity:.85;}}
+
+  @media (max-width:520px){
+    .node{flex:1 1 100%;}
+    .stage{flex:1 1 100%; text-align:center;}
+    .arr{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">SYSTEM ARCHITECTURE · BIRD'S-EYE</div>
+    <h1>BROBOT<span class="slash">/</span>STACK</h1>
+    <div class="tagline">The full apparatus — what's online, what's designed-but-unbuilt, and what's deferred. One frame. Built to live in front of you as the reference map.</div>
+
+    <div class="legend">
+      <div class="key"><span class="dot live"></span> ONLINE — exists &amp; running</div>
+      <div class="key"><span class="dot build"></span> TO-BUILD — designed, not yet built</div>
+      <div class="key"><span class="dot later"></span> LATER — deferred / optional</div>
+    </div>
+
+    <div class="frame-note">
+      <span><b>Topology:</b> M1 Mac = always-on brain</span>
+      <span>iPhone 15 Pro Max = client over Tailscale</span>
+      <span>read bottom→top: foundation → surface</span>
+    </div>
+  </header>
+
+  <!-- L6 SURFACES -->
+  <div class="stratum" data-l="L6 · SURFACE">
+    <div class="s-title">Surfaces &amp; Instrument</div>
+    <div class="s-sub">Where you (and maybe others) actually touch it</div>
+    <div class="row">
+      <div class="node live"><span class="n-name">Brobot V1</span><span class="n-meta">iOS / macOS · SwiftUI chat</span></div>
+      <div class="node live"><span class="n-name">InterSpace shell</span><span class="n-meta">WKWebView wrapper · offline bundle</span></div>
+      <div class="node later"><span class="n-name">InterSpace · Horizon</span><span class="n-meta">native instrument front-end</span></div>
+      <div class="node later"><span class="n-name">Constellation / Observatory</span><span class="n-meta">graph + ambient modes</span></div>
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L5 ORCHESTRATION -->
+  <div class="stratum s2" data-l="L5 · ORCHESTRATION">
+    <div class="s-title">The Factory — idea → revenue</div>
+    <div class="s-sub">Your 4 divisions feed in. One active build-lane, three capture-only (EF guardrail).</div>
+
+    <div class="divisions">
+      <div class="div a1"><span class="d-tag">LANE 01</span><span class="d-name">AI / ML</span></div>
+      <div class="div a2"><span class="d-tag">LANE 02</span><span class="d-name">Markets / Trading</span></div>
+      <div class="div a3"><span class="d-tag">LANE 03</span><span class="d-name">Cybersecurity</span></div>
+      <div class="div a4"><span class="d-tag">LANE 04</span><span class="d-name">Tech · General Studies</span></div>
+    </div>
+
+    <div class="pipeline">
+      <span class="stage">spoken idea</span><span class="arr">→</span>
+      <span class="stage you">Claude: spec (.md)</span><span class="arr">→</span>
+      <span class="stage">triage / queue</span><span class="arr">→</span>
+      <span class="stage you">Code: build</span><span class="arr">→</span>
+      <span class="stage">ship</span><span class="arr">→</span>
+      <span class="stage">revenue track</span>
+    </div>
+
+    <div class="loop-note">
+      <b>↺ IMPROVEMENT LOOP</b> — outcomes log back: which sources earn their keep, which specs Code builds clean, what shipped &amp; paid → reweight sources + tune prompts. <b>You sit at the judgment node.</b> Bounded feedback, <u>not</u> autonomous self-modification.
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L4 SYNTHESIS -->
+  <div class="stratum s3" data-l="L4 · SYNTHESIS">
+    <div class="s-title">Synthesis Outputs</div>
+    <div class="s-sub">Vast input → only what matters, pre-sorted</div>
+    <div class="row">
+      <div class="node build"><span class="n-name">Newsletter's Newsletter</span><span class="n-meta">weekly intelligence brief</span></div>
+      <div class="node build"><span class="n-name">Paper Digest</span><span class="n-meta">ML / AI / cyber feed</span></div>
+      <div class="node build"><span class="n-name">Market Watch</span><span class="n-meta">synthesized signal</span></div>
+      <div class="node build"><span class="n-name">Pine Lab</span><span class="n-meta">indicator simulator</span></div>
+      <div class="node build"><span class="n-name">Expeditions / Puzzles</span><span class="n-meta">learning modules</span></div>
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L3 AGENTS -->
+  <div class="stratum s4" data-l="L3 · AGENTS">
+    <div class="s-title">Ingestion Agents</div>
+    <div class="s-sub">Run unattended as launchd jobs — the pattern MemoryCurator.py already proves</div>
+    <div class="row">
+      <div class="node build"><span class="n-name">Newsletter agent</span><span class="n-meta">fetch · synth · ingest</span></div>
+      <div class="node build"><span class="n-name">Paper tracker</span><span class="n-meta">arXiv / repos / RSS</span></div>
+      <div class="node build"><span class="n-name">Market collector</span><span class="n-meta">price · narrative</span></div>
+      <div class="node build"><span class="n-name">Source synth</span><span class="n-meta">generic scraper → store</span></div>
+      <div class="node live"><span class="n-name">MemoryCurator.py</span><span class="n-meta">launchd agent · template</span></div>
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L2 DATA SUBSTRATE -->
+  <div class="stratum s5" data-l="L2 · SUBSTRATE">
+    <div class="s-title">Memory &amp; Data Substrate</div>
+    <div class="s-sub">The aggregate source. Everything above writes here; everything reads from here.</div>
+    <div class="row">
+      <div class="node live"><span class="n-name">BrobotMemory</span><span class="n-meta">SQLite + FTS5</span></div>
+      <div class="node live"><span class="n-name">EmbeddingStore</span><span class="n-meta">semantic vectors</span></div>
+      <div class="node build"><span class="n-name">MCP Data Server</span><span class="n-meta">unified tool surface</span></div>
+      <div class="node build"><span class="n-name">sqlite-vec layer</span><span class="n-meta">hybrid lexical+vector</span></div>
+      <div class="node build"><span class="n-name">why-it-mattered meta</span><span class="n-meta">capture + temporal echo</span></div>
+    </div>
+    <div class="keystone">
+      <b>◆ KEYSTONE</b>
+      <span>Stone #1 lives here. The MCP data server + sqlite-vec layer extend your existing memory stack — it's the foundation every other to-build node plugs into. This is what Code builds first (see handoff prompt).</span>
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L1 INFERENCE -->
+  <div class="stratum s6" data-l="L1 · INFERENCE">
+    <div class="s-title">Inference</div>
+    <div class="s-sub">Local-first model execution · ~5–5.5 GB iOS budget</div>
+    <div class="row">
+      <div class="node live"><span class="n-name">EngineCoordinator</span><span class="n-meta">routing</span></div>
+      <div class="node live"><span class="n-name">MLXEngine</span><span class="n-meta">Swift · Apple silicon</span></div>
+      <div class="node live"><span class="n-name">LlamaEngine</span><span class="n-meta">llama.cpp</span></div>
+      <div class="node live"><span class="n-name">Ollama</span><span class="n-meta">Mac-side serving</span></div>
+      <div class="node live"><span class="n-name">Qwen3 / Ternary Bonsai 8B</span><span class="n-meta">models</span></div>
+    </div>
+  </div>
+
+  <div class="flow">▲</div>
+
+  <!-- L0 HARDWARE -->
+  <div class="stratum s7" data-l="L0 · FOUNDATION">
+    <div class="s-title">Hardware &amp; Transport</div>
+    <div class="s-sub">The physical mesh — all online</div>
+    <div class="row">
+      <div class="node live"><span class="n-name">M1 MacBook Air</span><span class="n-meta">always-on brain</span></div>
+      <div class="node live"><span class="n-name">iPhone 15 Pro Max</span><span class="n-meta">client</span></div>
+      <div class="node live"><span class="n-name">Tailscale</span><span class="n-meta">mesh VPN</span></div>
+      <div class="node live"><span class="n-name">Mosh + SSH</span><span class="n-meta">resilient sessions</span></div>
+      <div class="node live"><span class="n-name">a-Shell</span><span class="n-meta">iOS terminal</span></div>
+    </div>
+  </div>
+
+  <!-- CONSTRAINTS -->
+  <div class="constraints">
+    <div class="c-title">⚙ Design Constraints — encoded, not preached</div>
+    <div class="c-item"><span class="c-k">01</span><span><b>One active build-lane.</b> All four divisions capture ideas freely; only one is "building" at a time. Contains the room-to-room pattern at the system level without asking you to stop generating.</span></div>
+    <div class="c-item"><span class="c-k">02</span><span><b>The substrate is Brobot's, not a separate app.</b> This is your "one aggregate source." InterSpace becomes a view onto it later — earned, not led with.</span></div>
+    <div class="c-item"><span class="c-k">03</span><span><b>Self-improvement = bounded feedback loop.</b> Reweight sources, tune prompts, log outcomes. You hold the judgment node. No agent rewrites its own architecture unattended — that fails silently and you can't catch the drift.</span></div>
+    <div class="c-item"><span class="c-k">04</span><span><b>Every stone is useful the day it lands.</b> Stone #1 ingests newsletters and answers "what mattered this week" with zero UI. You benefit before the finish line — the whole point.</span></div>
+  </div>
+
+  <footer>BROBOT STACK MAP · v0.1 · REFERENCE ARTIFACT</footer>
+
+</div>
+</body>
+</html>
