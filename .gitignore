@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+DerivedData/
+build/
+
+# XcodeGen output — project.yml is the source of truth; run `xcodegen generate`
+GZ-BT.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Local MLX model store is seeded outside the repo (large binaries):
+#   ~/Library/Application Support/GZ-BT/Models

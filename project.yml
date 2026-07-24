@@ -1,0 +1,40 @@
+name: GZ-BT
+options:
+  minimumXcodeGenVersion: "2.42.0"
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: false
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_STRICT_CONCURRENCY: complete
+
+targets:
+  GZ-BT:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.gzbt.app
+        PRODUCT_NAME: "GZ-BT"
+        PRODUCT_MODULE_NAME: GZBT
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "GZ-BT"
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.developer-tools"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ENABLE_PREVIEWS: YES
+        # macOS: read shared ~/Library/Application Support/GZ-BT/Models during Session-1 dev
+        ENABLE_HARDENED_RUNTIME: NO
+        # Local/headless dev: ad-hoc "Sign to Run Locally" — no development team required.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: NO
+        DEVELOPMENT_TEAM: ""
