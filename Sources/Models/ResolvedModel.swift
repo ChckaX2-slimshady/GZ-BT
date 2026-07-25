@@ -8,10 +8,12 @@ struct ResolvedModel: Sendable, Identifiable, Hashable {
     let id: String
     let name: String
     let url: URL
+    let contextLength: Int?
 
-    init(id: String, name: String, url: URL) {
+    init(id: String, name: String, url: URL, contextLength: Int? = nil) {
         self.id = id
         self.name = name
         self.url = url
+        self.contextLength = contextLength
     }
 }

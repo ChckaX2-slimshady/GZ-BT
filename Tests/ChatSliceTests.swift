@@ -28,8 +28,10 @@ final class ChatSliceTests: XCTestCase {
         XCTAssertNotNil(vm.metrics.tokensPerSecond, "Seam-1 should report tok/s")
         XCTAssertNotNil(vm.metrics.ttft, "Seam-1 should report TTFT")
         XCTAssertGreaterThan(vm.metrics.generatedTokens ?? 0, 0)
+        XCTAssertNotNil(vm.metrics.contextUsed, "Seam-1 .context(used:) should fire")
+        XCTAssertNotNil(vm.metrics.contextCapacity, "Seam-1 .context(capacity:) should fire")
+        XCTAssertEqual(vm.metrics.contextCapacity, 32768, "Bonsai context capacity from max_position_embeddings")
 
-        let used = (vm.metrics.promptTokens ?? 0) + (vm.metrics.generatedTokens ?? 0)
         print("======== RUNTIME PROOF (macOS, real Bonsai MLX) ========")
         print("model:  \(vm.activeModelName ?? "—")")
         print("prompt: Say hi in one short sentence.")
@@ -39,8 +41,8 @@ final class ChatSliceTests: XCTestCase {
         print("tokens/sec:      \(vm.metrics.tokensPerSecond.map { String(format: "%.2f", $0) } ?? "—")")
         print("prompt tokens:   \(vm.metrics.promptTokens.map(String.init) ?? "—")")
         print("generated tokens:\(vm.metrics.generatedTokens.map(String.init) ?? "—")")
-        print("context used:    \(used) (prompt+generated)")
-        print("context capacity:\(vm.metrics.contextCapacity.map(String.init) ?? "NOT EMITTED via Seam-1 (32768 from config.json)")")
+        print("context used:    \(vm.metrics.contextUsed.map(String.init) ?? "—") (Seam-1 .context)")
+        print("context capacity:\(vm.metrics.contextCapacity.map(String.init) ?? "—") (Seam-1 .context)")
         print("lifecycle:       \(vm.metrics.lifecycle)")
         print("========================================================")
     }

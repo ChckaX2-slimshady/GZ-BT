@@ -9,4 +9,5 @@ struct DiscoveredModel: Sendable, Identifiable, Hashable {
     let architecture: String? // config.json "model_type"
     let quantization: String? // e.g. "2-bit"
     let sizeBytes: Int64
+    let contextLength: Int?   // config.json "max_position_embeddings"
 }

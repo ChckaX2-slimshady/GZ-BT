@@ -37,7 +37,7 @@ final class ModelManager {
 
     /// Hand a discovered model to the engine as a resolved location.
     func resolve(_ model: DiscoveredModel) -> ResolvedModel {
-        ResolvedModel(id: model.id, name: model.name, url: model.url)
+        ResolvedModel(id: model.id, name: model.name, url: model.url, contextLength: model.contextLength)
     }
 
     func scan() {
@@ -83,12 +83,15 @@ final class ModelManager {
 
         var architecture: String?
         var quantization: String?
+        var contextLength: Int?
         if let data = try? Data(contentsOf: configURL),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             architecture = json["model_type"] as? String
             if let q = json["quantization"] as? [String: Any], let bits = q["bits"] as? Int {
                 quantization = "\(bits)-bit"
             }
+            contextLength = (json["max_position_embeddings"] as? Int)
+                ?? ((json["text_config"] as? [String: Any])?["max_position_embeddings"] as? Int)
         }
 
         return DiscoveredModel(
@@ -97,7 +100,8 @@ final class ModelManager {
             url: dir,
             architecture: architecture,
             quantization: quantization,
-            sizeBytes: directorySize(dir))
+            sizeBytes: directorySize(dir),
+            contextLength: contextLength)
     }
 
     private static func directorySize(_ dir: URL) -> Int64 {

@@ -57,10 +57,10 @@ Chat, Models, Settings; the rest render one tokenized `PlaceholderView`.
 
 ## Seam-1
 `InferenceEngine.telemetry: AsyncStream<TelemetryEvent>` (declared in `Inference/InferenceEngine.swift`).
-Contract cases: `.lifecycle`, `.firstToken(ttft:)`, `.throughput`, `.context(used:capacity:)`, `.completed`.
-**Currently emitted:** lifecycle, firstToken (TTFT), throughput (tok/s), completed (prompt/generated
-counts). **Not yet emitted:** `.context` (see DECISIONS "Known limitations"). Session-1's only consumer
-is `ChatMetricsBar`; **Spectre subscribes here later** — this session builds only the seam.
+**All contract cases are emitted:** `.lifecycle`, `.firstToken(ttft:)`, `.throughput` (tok/s),
+`.context(used:capacity:)` (used = prompt+generated; capacity = model `max_position_embeddings`, read by
+`ModelManager` and passed via `ResolvedModel`), `.completed`. Session-1's only consumer is
+`ChatMetricsBar`; **Spectre subscribes here later** — this session builds only the seam.
 
 ## Token semantics (DesignSystem)
 Raw Veiled Chameleon ramp (`ChameleonPalette`) → semantic roles (`Theme`: surfaces, structure,

@@ -8,8 +8,9 @@ xcuserdata/
 DerivedData/
 build/
 
-# XcodeGen output — project.yml is the source of truth; run `xcodegen generate`
-GZ-BT.xcodeproj/
+# XcodeGen: project.yml is authoritative, but GZ-BT.xcodeproj IS committed (regenerated
+# and re-committed at each checkpoint) so a fresh clone builds with zero external tooling.
+# Only user-specific state inside the project is ignored (see xcuserdata / xcuserstate above).
 
 # Swift Package Manager
 .build/

@@ -26,16 +26,13 @@ Claude owns implementation choices within them.
 8. **No third-party packages beyond the MLX substrate + its transitive deps.**
 
 ## Project & build
-9. **XcodeGen generates the project — HONEST NOTE (needs TyPod ratification).**
-   The Session-1 spec listed, as a *default* (not one of the four ratified interview questions):
-   "hand-authored `.xcodeproj`… no XcodeGen/Tuist, no new tools installed." During Checkpoint 1 I
-   found XcodeGen **already installed** (`/opt/homebrew/bin/xcodegen`) and switched to it for
-   reliability, flagging the switch in-session. So: *no NEW tool was installed* (it pre-existed),
-   but the generation **method changed from the stated default without explicit ratification** —
-   it slipped in. `project.yml` is the source of truth; `GZ-BT.xcodeproj` is git-ignored.
-   **Reproducibility cost:** a fresh clone must run `xcodegen generate` (needs XcodeGen present;
-   `brew install xcodegen`) before building. If you want zero external tooling, the alternatives
-   are to commit the generated `.xcodeproj` or hand-author one — **your call to ratify or revert.**
+9. **XcodeGen generates the project — RATIFIED (TyPod, 2026-07-25).**
+   `project.yml` is **authoritative**. XcodeGen was already installed (`/opt/homebrew/bin/xcodegen`),
+   so no new tool was installed; it was adopted over the spec's hand-authored default, and TyPod has
+   now ratified it. To keep a fresh clone building with **zero external tooling**, the generated
+   `GZ-BT.xcodeproj` **is committed**, and is regenerated (`xcodegen generate`) and re-committed at
+   each checkpoint. Package pins live in the committed `…/swiftpm/Package.resolved`. Editing the
+   project = edit `project.yml` then regenerate; never hand-edit the `.xcodeproj`.
 10. **Single multiplatform app target** (`supportedDestinations: [iOS, macOS]`).
 11. **Two schemes: `GZ-BT` (app) and `GZ-BT-Tests` (macOS tests).** A macOS-only test target
     inside the app scheme breaks single-platform (iOS-Simulator) builds; splitting fixes it.
@@ -65,11 +62,9 @@ Claude owns implementation choices within them.
   via crash log). We **guard it** with `#if targetEnvironment(simulator)` and surface a clear error
   instead of crashing. Inference is verified on **macOS** and would run on a **real iPhone**; the
   sim renders UI + model discovery only.
-- **Seam-1 context utilization is not emitted yet.** `TelemetryEvent.context(used:capacity:)` exists
-  in the contract but the engine never yields it. TTFT, tokens/sec, lifecycle, and prompt/generated
-  token counts *are* emitted. Context *used* is derivable (prompt+generated); *capacity* is 32768 for
-  Bonsai (from `max_position_embeddings`) but is not read into the stream. Wiring it is the first
-  Seam-1 follow-up — deliberately not added during this verification-only close-out.
+
+(Seam-1 `.context(used:capacity:)` is now emitted — capacity from `max_position_embeddings`, ratified
+and wired 2026-07-25 before merge.)
 
 ## Deferred / out of scope (unchanged from FEATURE_SCOPE)
 Remote APIs, GGUF, persistence, iCloud, HATS/Memory/Wiki/Tools internals, Spectre internals

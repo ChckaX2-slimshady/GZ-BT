@@ -17,6 +17,7 @@ actor MLXInferenceEngine: InferenceEngine {
     private var container: ModelContainer?
     private var loaded: ResolvedModel?
     private var current: Task<Void, Never>?
+    private var contextCapacity: Int?
 
     init() {
         (telemetry, tele) = AsyncStream<TelemetryEvent>.makeStream()
@@ -38,6 +39,7 @@ actor MLXInferenceEngine: InferenceEngine {
                 progress?(p.fractionCompleted)
             }
             loaded = model
+            contextCapacity = model.contextLength
             tele.yield(.lifecycle(.loaded))
         } catch {
             container = nil
@@ -68,6 +70,7 @@ actor MLXInferenceEngine: InferenceEngine {
         let tele = self.tele
         let messages = request.messages
         let cfg = request.config
+        let capacity = contextCapacity
 
         let task = Task {
             tele.yield(.lifecycle(.generating))
@@ -101,6 +104,10 @@ actor MLXInferenceEngine: InferenceEngine {
                             }
                             out.yield(.token(text))
                         case .info(let info):
+                            let contextUsed = info.promptTokenCount + info.generationTokenCount
+                            if let capacity {
+                                tele.yield(.context(used: contextUsed, capacity: capacity))
+                            }
                             let summary = GenerationSummary(
                                 promptTokens: info.promptTokenCount,
                                 generatedTokens: info.generationTokenCount,
