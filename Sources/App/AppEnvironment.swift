@@ -7,4 +7,6 @@ import Observation
 @Observable
 final class AppEnvironment {
     let settings = AppSettings()
+    let models = ModelManager()
+    let engine: any InferenceEngine = MLXInferenceEngine()
 }

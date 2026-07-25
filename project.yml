@@ -75,6 +75,9 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GZ-BT.app/Contents/MacOS/GZ-BT"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+# Two schemes: the app scheme has NO test target so it can build for any single
+# platform (a macOS-only test target in the scheme breaks iOS-Simulator builds).
+# The test scheme runs the macOS unit/inference tests.
 schemes:
   GZ-BT:
     build:
@@ -82,6 +85,11 @@ schemes:
         GZ-BT: all
     run:
       config: Debug
+  GZ-BT-Tests:
+    build:
+      targets:
+        GZ-BT: all
+        GZ-BTTests: [test]
     test:
       config: Debug
       targets:
