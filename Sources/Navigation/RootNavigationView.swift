@@ -26,12 +26,13 @@ struct RootNavigationView: View {
     @ViewBuilder
     private func detail(for route: AppRoute) -> some View {
         switch route {
+        case .chat:
+            ChatView(vm: env.chat)
         case .models:
             ModelsView(manager: env.models)
         case .settings:
             SettingsView()
         default:
-            // Chat becomes its real view in Checkpoint 5.
             PlaceholderView(route: route)
         }
     }
