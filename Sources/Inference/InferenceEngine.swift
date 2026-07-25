@@ -23,6 +23,20 @@ protocol InferenceEngine: Actor {
     func cancel() async
 }
 
+// MARK: - Errors
+
+enum InferenceError: LocalizedError {
+    case unsupportedEnvironment(String)
+    case noModelLoaded
+
+    var errorDescription: String? {
+        switch self {
+        case .unsupportedEnvironment(let message): message
+        case .noModelLoaded: "No model loaded."
+        }
+    }
+}
+
 // MARK: - Request
 
 struct GenerationRequest: Sendable {

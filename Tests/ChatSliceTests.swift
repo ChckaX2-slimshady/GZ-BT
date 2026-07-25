@@ -29,9 +29,20 @@ final class ChatSliceTests: XCTestCase {
         XCTAssertNotNil(vm.metrics.ttft, "Seam-1 should report TTFT")
         XCTAssertGreaterThan(vm.metrics.generatedTokens ?? 0, 0)
 
-        print("CHAT SLICE: reply=\"\(assistant?.text ?? "")\" "
-              + "tok/s=\(vm.metrics.tokensPerSecond.map { String(format: "%.1f", $0) } ?? "?") "
-              + "ttft=\(vm.metrics.ttft.map { String(format: "%.0f", $0.milliseconds) } ?? "?")ms")
+        let used = (vm.metrics.promptTokens ?? 0) + (vm.metrics.generatedTokens ?? 0)
+        print("======== RUNTIME PROOF (macOS, real Bonsai MLX) ========")
+        print("model:  \(vm.activeModelName ?? "—")")
+        print("prompt: Say hi in one short sentence.")
+        print("reply:  \(assistant?.text ?? "")")
+        print("-- Seam-1 telemetry emitted --")
+        print("TTFT:            \(vm.metrics.ttft.map { String(format: "%.0f ms", $0.milliseconds) } ?? "—")")
+        print("tokens/sec:      \(vm.metrics.tokensPerSecond.map { String(format: "%.2f", $0) } ?? "—")")
+        print("prompt tokens:   \(vm.metrics.promptTokens.map(String.init) ?? "—")")
+        print("generated tokens:\(vm.metrics.generatedTokens.map(String.init) ?? "—")")
+        print("context used:    \(used) (prompt+generated)")
+        print("context capacity:\(vm.metrics.contextCapacity.map(String.init) ?? "NOT EMITTED via Seam-1 (32768 from config.json)")")
+        print("lifecycle:       \(vm.metrics.lifecycle)")
+        print("========================================================")
     }
 
     @MainActor

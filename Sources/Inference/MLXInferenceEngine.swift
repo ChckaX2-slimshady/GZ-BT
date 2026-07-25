@@ -24,6 +24,13 @@ actor MLXInferenceEngine: InferenceEngine {
     }
 
     func load(_ model: ResolvedModel, progress: (@Sendable (Double) -> Void)? = nil) async throws {
+        #if targetEnvironment(simulator)
+        // MLX needs a Metal GPU; the iOS Simulator has none, so loading would abort.
+        // Fail gracefully instead of crashing — real devices and macOS run normally.
+        tele.yield(.lifecycle(.failed("simulator")))
+        throw InferenceError.unsupportedEnvironment(
+            "On-device inference needs a real device — the iOS Simulator has no Metal GPU for MLX.")
+        #else
         tele.yield(.lifecycle(.loading))
         let configuration = ModelConfiguration(directory: model.url)
         do {
@@ -38,6 +45,7 @@ actor MLXInferenceEngine: InferenceEngine {
             tele.yield(.lifecycle(.failed(Self.describe(error))))
             throw error
         }
+        #endif
     }
 
     func unload() async {
