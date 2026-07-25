@@ -7,13 +7,17 @@ import SwiftUI
 /// routing lives in the **Navigation** layer; nothing here reaches into Inference.
 @main
 struct GZBTApp: App {
+    @State private var environment = AppEnvironment()
+
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootNavigationView()
+                .environment(environment)
+                .chameleonTheme()
+                .preferredColorScheme(.dark)   // Veiled Chameleon: dark is primary
         }
         #if os(macOS)
         .defaultSize(width: 1180, height: 760)
-        .windowStyle(.hiddenTitleBar)
         #endif
     }
 }
