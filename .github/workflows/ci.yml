@@ -1,0 +1,99 @@
+name: CI
+
+# Gate item G2 — the drift guard.
+#
+# `project.yml` is authoritative AND the generated `GZ-BT.xcodeproj` is committed
+# (DECISIONS #9, ratified 2026-07-25; ARCHITECTURE.md "Build / run" corrected to match
+# in Session 2, resolving the BUILD_SESSION_2 §1.A canon conflict). Those two can
+# desync silently — a hand-edit in Xcode is invisible until someone regenerates.
+# This workflow regenerates and fails if the result differs from what is committed.
+#
+# Signing: macOS and the iOS Simulator use the ratified ad-hoc "-" identity
+# (DECISIONS #12), so CI needs no secrets. The real-device signing lane in
+# project.yml is scoped to `[sdk=iphoneos*]` and is never exercised here.
+
+on:
+  push:
+    branches: [main, 'session-*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Drift · macOS · iOS Simulator · Tests
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      # ---- G2: the drift guard itself -------------------------------------
+      # `.xcodeproj` is committed, so regenerating it must be a no-op. Any diff
+      # means project.yml and the committed project have desynced.
+      - name: Regenerate project
+        run: xcodegen generate
+
+      - name: Drift check — committed .xcodeproj must match project.yml
+        run: |
+          if ! git diff --exit-code -- GZ-BT.xcodeproj; then
+            echo "::error::GZ-BT.xcodeproj is out of sync with project.yml."
+            echo "::error::Fix: run 'xcodegen generate' locally and commit the result."
+            echo "::error::Never hand-edit the .xcodeproj (DECISIONS #9)."
+            exit 1
+          fi
+          echo "No drift: committed .xcodeproj matches project.yml."
+
+      # Package resolution is cached by SPM's own resolved file; do it once,
+      # explicitly, so a network failure is distinguishable from a build failure.
+      - name: Resolve packages
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme GZ-BT \
+            -skipPackagePluginValidation
+
+      - name: Build (macOS)
+        run: |
+          set -o pipefail
+          xcodebuild -scheme GZ-BT \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation \
+            build
+
+      # DECISIONS #14: the destination picker rejects the sim (only a 26.4 runtime
+      # is installed locally against a 26.5 SDK), so build by SDK + arch instead.
+      # CODE_SIGNING_ALLOWED=NO keeps this lane free of any identity.
+      - name: Build (iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild -scheme GZ-BT \
+            -sdk iphonesimulator \
+            -arch arm64 \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      # ChatSliceTests and the ConversationStore suite run everywhere. The two
+      # model-dependent suites (InferenceSpikeTests, ModelDiscoveryTests) call
+      # XCTSkip when the ~473 MB Bonsai model is not seeded — which it never is on
+      # a hosted runner. Skips are reported, not silently passed.
+      - name: Test (macOS)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme GZ-BT-Tests \
+            -destination 'platform=macOS' \
+            -skipPackagePluginValidation

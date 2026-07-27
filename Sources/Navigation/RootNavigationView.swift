@@ -27,7 +27,7 @@ struct RootNavigationView: View {
     private func detail(for route: AppRoute) -> some View {
         switch route {
         case .chat:
-            ChatView(vm: env.chat)
+            ChatView(vm: env.chat, store: env.store)
         case .models:
             ModelsView(manager: env.models)
         case .settings:

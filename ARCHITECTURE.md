@@ -13,7 +13,7 @@ with **DesignSystem orthogonal** to all UI.
 | **Views** | render state; read DesignSystem tokens | hold engine refs; hardcode visual values |
 | **ViewModels** | presentation state (`@MainActor @Observable`) | import DesignSystem tokens; scan the filesystem; import MLX |
 | **Inference** | engine-neutral contract + MLX binding | scan the filesystem; leak MLX types past the seam |
-| **Services** | discovery/selection (`ModelManager`), settings | — |
+| **Services** | discovery/selection (`ModelManager`), settings, **chat persistence** (`ConversationStore`) | let SQL escape the store |
 | **Models** | domain value types | depend upward |
 | **Utilities** | small helpers | hold state |
 | **DesignSystem** | every color/type/spacing/radius/material/motion/gradient token | depend on anything above SwiftUI |
@@ -23,13 +23,16 @@ with **DesignSystem orthogonal** to all UI.
 App/           GZBTApp · AppEnvironment
 Navigation/    AppRoute · RootNavigationView · SidebarView
 DesignSystem/  ChameleonPalette · Theme · Typography · Layout · Materials · Motion
-Views/         Chat/{ChatView,ChatMessageRow,StreamingIndicatorView,ChatMetricsBar}
+Views/         Chat/{ChatView,ChatMessageRow,StreamingIndicatorView,ChatMetricsBar,
+                     ConversationListView}
                Models/{ModelsView,ModelRow} · Settings/SettingsView · Placeholders/PlaceholderView
 ViewModels/    ChatViewModel · ModelsViewModel
 Inference/     InferenceEngine (protocol + neutral types) · MLXInferenceEngine (actor)
-Services/      ModelManager · AppSettings
-Models/        ChatMessage · DiscoveredModel · ResolvedModel · GenerationConfig
-Utilities/     ByteFormat
+Services/      ModelManager · AppSettings · ConversationStore · ConversationDatabase ·
+               SQLite · TelemetryAccumulator
+Models/        ChatMessage · DiscoveredModel · ResolvedModel · GenerationConfig ·
+               Conversation · PersistedMessage · MessageTelemetry
+Utilities/     ByteFormat · Log
 ```
 
 ## Navigation graph
@@ -62,6 +65,35 @@ Chat, Models, Settings; the rest render one tokenized `PlaceholderView`.
 `ModelManager` and passed via `ResolvedModel`), `.completed`. Session-1's only consumer is
 `ChatMetricsBar`; **Spectre subscribes here later** — this session builds only the seam.
 
+## Persistence (Session 2)
+`Services/ConversationStore` (`@MainActor @Observable`) is the app-facing surface and the sole
+owner of chat storage — `ModelManager`'s counterpart for models. It holds **no** SQLite state:
+every statement runs inside `ConversationDatabase`, an `actor` wrapping the **system** SQLite3
+library (`import SQLite3`, no package added), so a write can never block token streaming.
+`ChatViewModel` talks to the store and never sees SQL. Built once in `AppEnvironment`, never in
+SwiftUI `@State`.
+
+**Store:** `~/Library/Application Support/GZ-BT/gzbt.sqlite` — beside `Models/` — and the sandbox
+equivalent on iOS. Three tables (`conversations`, `messages`, `message_telemetry`) with
+`ON DELETE CASCADE`; `PRAGMA foreign_keys = ON` is set **and asserted** at open. Migrations run
+off `PRAGMA user_version` and are idempotent. `schema_version` + `extra` on the telemetry table
+are a database-layer envelope for future fields — deliberately *not* part of the Seam-1 contract.
+
+**Write policy:** the user row lands `complete` and the assistant row lands empty/`streaming`
+before generation starts; tokens buffer **in memory** (no per-token writes); completion commits
+final content, terminal status and the telemetry row in **one transaction**. Any row still
+`streaming` at launch is a crash artifact and is swept to `failed`.
+
+**Telemetry:** `TelemetryAccumulator` turns the Seam-1 event stream into one `message_telemetry`
+row. `ChatViewModel` remains the single consumer of `InferenceEngine.telemetry` and feeds the
+accumulator from its existing handler — no second iterator. Because telemetry and generation are
+*independent* `AsyncStream`s with no relative ordering, the record is closed from the generation
+stream's `GenerationSummary` (the engine yields the same value on both); relying on the telemetry
+stream's `.completed` raced with turn completion and silently dropped rows.
+
+**Persistence never enters `Inference/`.** The engine emits on Seam-1; the store consumes and
+persists. Verified by grep as an exit criterion.
+
 ## Token semantics (DesignSystem)
 Raw Veiled Chameleon ramp (`ChameleonPalette`) → semantic roles (`Theme`: surfaces, structure,
 accents, text, warning) resolved per color scheme via `\.theme`. Dark is primary; light inverts around
@@ -74,11 +106,32 @@ never shadows. `Space`/`Radius` scales, restrained `ChameleonType`, brief `Motio
 only `Sendable` values cross the actor boundary; cancellation propagates via `Task` cancellation.
 
 ## Build / run
-`xcodegen generate` → `GZ-BT.xcodeproj` (git-ignored). Scheme **GZ-BT** builds/runs the app per platform;
-**GZ-BT-Tests** runs the macOS test suite. See `DECISIONS.md` for toolchain specifics.
+`project.yml` is authoritative; `xcodegen generate` → `GZ-BT.xcodeproj`, which **is committed**
+(regenerated and re-committed at each checkpoint) so a fresh clone builds with zero external tooling —
+per DECISIONS #9, ratified 2026-07-25. Never hand-edit the `.xcodeproj`; edit `project.yml` and regenerate.
+Scheme **GZ-BT** builds/runs the app per platform; **GZ-BT-Tests** runs the macOS test suite.
+See `DECISIONS.md` for toolchain specifics.
 ```
 xcodegen generate
 xcodebuild -scheme GZ-BT -destination 'platform=macOS' -skipPackagePluginValidation build
 xcodebuild -scheme GZ-BT -sdk iphonesimulator -arch arm64 -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO build
 xcodebuild test -scheme GZ-BT-Tests -destination 'platform=macOS' -skipPackagePluginValidation
+
+# Physical iPhone (real signing — see DECISIONS #20)
+xcodebuild -scheme GZ-BT -destination 'generic/platform=iOS' -skipPackagePluginValidation \
+  -allowProvisioningUpdates build
+xcrun devicectl device install app --device <udid> <path>/Debug-iphoneos/GZ-BT.app
 ```
+`.github/workflows/ci.yml` runs the first four on every push: regenerate → **drift check**
+(the committed `.xcodeproj` must match `project.yml`) → macOS build → iOS-Simulator build → tests.
+
+## Measured performance
+| Platform | Device | TTFT | tok/s | Model |
+|---|---|---|---|---|
+| macOS | M1 Air | ~0.23 s | ~68 | Ternary-Bonsai-1.7B-mlx-2bit |
+| **iOS** | **iPhone 15 Pro Max (A17 Pro), iOS 26.5** | **225 ms** | **76.3** | same |
+
+Device numbers are from gate item **G1** — read out of `message_telemetry` in the SQLite store
+pulled off the phone with `devicectl device copy from`, not from a log line. They retire the
+"*would* run on a real iPhone" claim in DECISIONS' known-limitations section: it does, and it is
+faster than the M1 Air. The iOS **Simulator** still cannot run MLX (no Metal GPU) and is guarded.

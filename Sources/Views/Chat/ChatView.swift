@@ -6,6 +6,12 @@ import SwiftUI
 struct ChatView: View {
     @Environment(\.theme) private var theme
     @Bindable var vm: ChatViewModel
+    let store: ConversationStore
+
+    /// The conversation list is presented rather than pinned so one layout works on
+    /// iPhone, iPad and Mac without a size-class branch. §4.7 asks for proof of
+    /// persistence, not a redesign.
+    @State private var showingConversations = false
 
     var body: some View {
         ZStack {
@@ -17,6 +23,41 @@ struct ChatView: View {
             }
         }
         .navigationTitle("Chat")
+        .toolbar {
+            ToolbarItem {
+                Button {
+                    showingConversations = true
+                } label: {
+                    Label("Conversations", systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .disabled(vm.isStreaming)
+            }
+            ToolbarItem {
+                Button {
+                    vm.newConversation()
+                } label: {
+                    Label("New conversation", systemImage: "square.and.pencil")
+                }
+                .disabled(vm.isStreaming)
+            }
+        }
+        .sheet(isPresented: $showingConversations) {
+            ConversationListView(
+                store: store,
+                currentID: vm.currentConversationID,
+                onOpen: { conversation in
+                    showingConversations = false
+                    Task { await vm.open(conversation) }
+                },
+                onNew: {
+                    showingConversations = false
+                    vm.newConversation()
+                },
+                onDelete: { conversation in
+                    Task { await vm.delete(conversation) }
+                })
+            .frame(minWidth: 320, minHeight: 380)
+        }
         .task { vm.start() }
     }
 

@@ -12,7 +12,15 @@ final class ChatSliceTests: XCTestCase {
         try XCTSkipUnless(models.activeModel != nil,
                           "no model seeded at \(ModelManager.modelsRoot.path)")
 
-        let vm = ChatViewModel(engine: MLXInferenceEngine(), models: models)
+        // A temporary store, so the suite never writes into the developer's real
+        // conversation history.
+        let storeURL = FileManager.default.temporaryDirectory
+            .appending(path: "gzbt-slice-\(UUID().uuidString).sqlite")
+        defer { try? FileManager.default.removeItem(at: storeURL) }
+
+        let store = ConversationStore(url: storeURL)
+        let vm = ChatViewModel(
+            engine: MLXInferenceEngine(), models: models, store: store, engineID: "mlx")
         vm.start()
         await wait(upTo: 60) { vm.status == .ready }
         XCTAssertEqual(vm.status, .ready, "model should load")
@@ -45,6 +53,53 @@ final class ChatSliceTests: XCTestCase {
         print("context capacity:\(vm.metrics.contextCapacity.map(String.init) ?? "—") (Seam-1 .context)")
         print("lifecycle:       \(vm.metrics.lifecycle)")
         print("========================================================")
+
+        // ---- Session 2: the same turn must be durable -----------------------
+        let conversationID = try XCTUnwrap(vm.currentConversationID,
+                                           "sending should have created a conversation")
+        let counts = await store.counts()
+        XCTAssertEqual(counts.messages, 2, "one user + one assistant row")
+        XCTAssertEqual(counts.streaming, 0, "no row may be left mid-stream")
+
+        let stored = await store.messages(in: conversationID)
+        XCTAssertEqual(stored.map(\.role), [.user, .assistant])
+        XCTAssertEqual(stored.map(\.sequence), [0, 1], "sequence is monotonic within a conversation")
+        XCTAssertEqual(stored.last?.status, .complete)
+        XCTAssertEqual(stored.last?.content, assistant?.text,
+                       "persisted content must match what was streamed on screen")
+
+        let assistantID = try XCTUnwrap(stored.last?.id)
+        let storedTelemetry = await store.telemetry(for: assistantID)
+        let telemetry = try XCTUnwrap(storedTelemetry,
+                                      "every assistant message carries persisted telemetry")
+        XCTAssertNotNil(telemetry.ttftMs)
+        XCTAssertNotNil(telemetry.tokensPerSecond)
+        XCTAssertNotNil(telemetry.contextUsed)
+        XCTAssertNotNil(telemetry.contextCapacity)
+        // §4.4 predicted these three would be unfillable. They are not.
+        XCTAssertNotNil(telemetry.promptTokens, "§4.4: prompt_tokens IS available via .completed")
+        XCTAssertNotNil(telemetry.tokensOut, "§4.4: tokens_out IS available via .completed")
+        XCTAssertNotNil(telemetry.finishReason, "§4.4: finish_reason IS available via .completed")
+
+        print("======== PERSISTED TELEMETRY (message_telemetry row) ====")
+        print("model=\(telemetry.modelID) engine=\(telemetry.engine)")
+        print("ttft_ms=\(telemetry.ttftMs.map { String(format: "%.1f", $0) } ?? "NULL")")
+        print("tokens_per_sec=\(telemetry.tokensPerSecond.map { String(format: "%.2f", $0) } ?? "NULL")")
+        print("context_used=\(telemetry.contextUsed.map(String.init) ?? "NULL")")
+        print("context_capacity=\(telemetry.contextCapacity.map(String.init) ?? "NULL")")
+        print("prompt_tokens=\(telemetry.promptTokens.map(String.init) ?? "NULL")   <- §4.4 predicted NULL")
+        print("tokens_out=\(telemetry.tokensOut.map(String.init) ?? "NULL")         <- §4.4 predicted NULL")
+        print("finish_reason=\(telemetry.finishReason ?? "NULL")                    <- §4.4 predicted NULL")
+        print("schema_version=\(telemetry.schemaVersion) extra=\(telemetry.extra ?? "NULL")")
+        print("========================================================")
+
+        // ---- E1 in test form: a second store over the same file sees it all ---
+        let reopened = ConversationStore(url: storeURL)
+        await reopened.start()
+        XCTAssertEqual(reopened.conversations.count, 1)
+        let restored = await reopened.messages(in: conversationID)
+        XCTAssertEqual(restored.count, 2, "transcript survives a fresh store over the same file")
+        XCTAssertEqual(restored.last?.content, assistant?.text)
     }
 
     @MainActor

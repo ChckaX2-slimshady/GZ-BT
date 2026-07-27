@@ -50,10 +50,19 @@ targets:
         ENABLE_PREVIEWS: YES
         ENABLE_HARDENED_RUNTIME: NO
         # Local/headless dev: ad-hoc "Sign to Run Locally" — no development team required.
+        # This remains the ratified default (DECISIONS #12) for macOS and the iOS Simulator.
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGNING_REQUIRED: NO
         DEVELOPMENT_TEAM: ""
+        # Physical-iPhone lane ONLY (gate item G1). Ad-hoc signatures cannot install on
+        # a device, so iphoneos builds use automatic signing with the personal team.
+        # SDK-scoped so macOS + Simulator keep the ratified ad-hoc posture untouched.
+        # Build with -allowProvisioningUpdates so Xcode mints/refreshes the 7-day profile.
+        "CODE_SIGN_STYLE[sdk=iphoneos*]": Automatic
+        "CODE_SIGN_IDENTITY[sdk=iphoneos*]": "Apple Development"
+        "CODE_SIGNING_REQUIRED[sdk=iphoneos*]": YES
+        "DEVELOPMENT_TEAM[sdk=iphoneos*]": 9TPK22K9J4
 
   GZ-BTTests:
     type: bundle.unit-test

@@ -66,3 +66,15 @@ These rules exist because each one was violated at least once. They are not hypo
 - **HATS** is the persona system (Souls concept, renamed). No TavernAI card import/export.
 - **Ratified out:** Novel Writer · Tavern cards · AI Keyboard.
 - **Stone #1** substrate arrives via an MCP server entry over Tailscale, post-v1.
+
+## State (updated each session — keep to one block)
+
+- **Session 1** — shell, DesignSystem, MLX chat vertical slice, Seam-1. Merged `d3cc119`,
+  tagged `v0.1.0-phoenix-s1`.
+- **Session 2** — persistence & session model. Chat survives restart on system SQLite3;
+  every assistant message carries a persisted `message_telemetry` row. Gate items done:
+  **G1** iPhone deploy (225 ms TTFT, 76.3 tok/s on an iPhone 15 Pro Max), **G2** CI drift
+  guard, **G3** S1 tagged. Tag `v0.2.0-phoenix-s2`.
+- **Open threads:** model provisioning on a fresh device (QUESTIONS Q3) · GRDB re-evaluated
+  at S6 when FTS5 lands (DECISIONS #21) · **S2.5** Spectre view — mostly pre-answered, since
+  §4.4's predicted seam gaps were falsified (DECISIONS #23).
