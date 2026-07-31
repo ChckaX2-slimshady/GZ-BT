@@ -88,11 +88,13 @@ These rules exist because each one was violated at least once. They are not hypo
   reading it); foreground works. `HubApi` materialises two levels below what
   `ModelManager.scan()` sees, and its `progressHandler` is not `@Sendable` so it will not
   compile from `@MainActor` code under strict concurrency. Seam-1 holds up for a remote engine;
-  `InferenceEngine.load` and `GenerationSummary` do not. **14 decisions open for TyPod — S3
-  cannot be specced until they are answered.** Tag `v0.2.6-phoenix-s3-recon`.
+  `InferenceEngine.load` and `GenerationSummary` do not. **All 14 decisions ratified by TyPod
+  2026-07-31 — see `BUILD_SESSION_3.md` §1**, which carries 8 into S3 and defers the rest with
+  destinations (S3.25 · S3.5 · S3.75). Tag `v0.2.6-phoenix-s3-recon`.
 - **Open threads:** models are fetched, never bundled (DECISIONS #26) — the HuggingFace
   downloader is what makes a fresh device self-sufficient, and **S3_RECON.md is its ground
-  truth** · background download is **not available as shipped** (see S3 recon), so a 473 MB
-  transfer dies when iOS backgrounds the app — direction not yet chosen · GRDB re-evaluated
+  truth** · background download is **not available as shipped** (see S3 recon) and S3 ships
+  **foreground-only** (BUILD_SESSION_3 §1 #3), so iOS must keep the app open for a 473 MB
+  transfer; whether background is cheap later is BUILD_SESSION_3 §4.6 · GRDB re-evaluated
   at S6 when FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history) still
   unscoped, and the two macOS perf figures in ARCHITECTURE.md are unreconciled (S3_RECON §6).
