@@ -121,6 +121,38 @@ and wired 2026-07-25 before merge.)
     **ARCHITECTURE.md's "(git-ignored)" line was the stale one and has been corrected** in the
     same commit, so the conflict cannot recur. Gate item **G2** now enforces it in CI.
 
+26. **Models are fetched, never bundled (answers QUESTIONS Q3).** A model is **user data**, not a
+    build artifact. GZ-BT ships no weights; a fresh device has an empty store until the user
+    downloads or imports one. Keeps DECISIONS #18 ("GZ-BT owns its own store") intact and keeps the
+    binary small. Accepted consequence: until the ratified HuggingFace downloader / Import-from-Files
+    land, putting a model on a device is a developer step (`devicectl device copy to`), and Chat
+    correctly reports "No model selected" until then.
+
+## Build Session 2.5 — Spectre view as seam falsification test (2026-07-30)
+
+27. **`TelemetryHub` is the single Seam-1 consumer; the seam vends one stream, not two.**
+    `AsyncStream` supports exactly one iterator — a second `for await` splits events
+    non-deterministically. Spectre is the second reader, so BUILD_SESSION_2 §4.3's choice
+    ("a broadcast wrapper or a single accumulator both read from") is resolved as a
+    **broadcast hub in Services**. `InferenceEngine` is untouched: vending a second stream
+    would be a seam amendment and is TyPod's call.
+
+    The hub is started by **`AppEnvironment` at launch, not by a view**. Had the subscription
+    stayed in `ChatView.task`, opening Spectre on a fresh launch without visiting Chat would
+    show a dead dashboard. `ChatViewModel` now registers a sink; its Session-2 `apply(_:)`
+    logic is unchanged, so the persistence path did not move.
+
+28. **S2.5 exit criterion MET — the dashboard renders live with no new `TelemetryEvent` case.**
+    `Sources/Inference/` is **byte-identical to `v0.2.0-phoenix-s2`** (`git diff --stat` empty).
+    Every readout — lifecycle, TTFT, tok/s, peak, prompt/generated tokens, stop reason, context
+    used/capacity, turn count, throughput series — is derived from the five cases the contract
+    already had. Verified live on macOS and asserted in
+    `TelemetryHubTests.testDashboardIsFullyPopulatedFromExistingSeamCasesOnly`, which fails if
+    any readout falls back to "—".
+
+    Together with **#23** (the §4.4 columns were also fillable), Seam-1 has now survived both
+    halves of its falsification test. **No amendment is pending.**
+
 ## Findings — Build Session 2
 
 23. **§4.4's three predicted seam gaps are FALSIFIED. No amendment is needed.** BUILD_SESSION_2

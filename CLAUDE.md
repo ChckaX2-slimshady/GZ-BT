@@ -75,6 +75,11 @@ These rules exist because each one was violated at least once. They are not hypo
   every assistant message carries a persisted `message_telemetry` row. Gate items done:
   **G1** iPhone deploy (225 ms TTFT, 76.3 tok/s on an iPhone 15 Pro Max), **G2** CI drift
   guard, **G3** S1 tagged. Tag `v0.2.0-phoenix-s2`.
-- **Open threads:** model provisioning on a fresh device (QUESTIONS Q3) · GRDB re-evaluated
-  at S6 when FTS5 lands (DECISIONS #21) · **S2.5** Spectre view — mostly pre-answered, since
-  §4.4's predicted seam gaps were falsified (DECISIONS #23).
+- **Session 2.5** — Spectre view as seam falsification test. `TelemetryHub` (Services) is the
+  single Seam-1 consumer and fans out to Chat + Spectre; the live dashboard renders with
+  **no new `TelemetryEvent` case** — `Sources/Inference/` byte-identical to the S2 tag.
+  Seam-1 has now survived both halves of its falsification test (DECISIONS #23, #28).
+  Tag `v0.2.5-phoenix-s2.5`.
+- **Open threads:** models are fetched, never bundled (DECISIONS #26) — the HuggingFace
+  downloader is what makes a fresh device self-sufficient · GRDB re-evaluated at S6 when
+  FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history) still unscoped.

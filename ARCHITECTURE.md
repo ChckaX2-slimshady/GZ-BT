@@ -26,10 +26,11 @@ DesignSystem/  ChameleonPalette · Theme · Typography · Layout · Materials ·
 Views/         Chat/{ChatView,ChatMessageRow,StreamingIndicatorView,ChatMetricsBar,
                      ConversationListView}
                Models/{ModelsView,ModelRow} · Settings/SettingsView · Placeholders/PlaceholderView
-ViewModels/    ChatViewModel · ModelsViewModel
+               Spectre/SpectreView
+ViewModels/    ChatViewModel · ModelsViewModel · SpectreViewModel
 Inference/     InferenceEngine (protocol + neutral types) · MLXInferenceEngine (actor)
 Services/      ModelManager · AppSettings · ConversationStore · ConversationDatabase ·
-               SQLite · TelemetryAccumulator
+               SQLite · TelemetryAccumulator · TelemetryHub
 Models/        ChatMessage · DiscoveredModel · ResolvedModel · GenerationConfig ·
                Conversation · PersistedMessage · MessageTelemetry
 Utilities/     ByteFormat · Log
@@ -39,8 +40,9 @@ Utilities/     ByteFormat · Log
 `RootNavigationView` = `NavigationSplitView { SidebarView } detail: { … }`.
 `AppRoute` (12): chat · models · hats · prompts · memory · wiki · reader · tools · settings ·
 osintinel · rsai · **spectre**. Sidebar groups Workspace / Labs / System. **Spectre** is
-appended only when `AppSettings.spectreEnabled` is on (default OFF). Session-1 real destinations:
-Chat, Models, Settings; the rest render one tokenized `PlaceholderView`.
+appended only when `AppSettings.spectreEnabled` is on (default OFF). Real destinations:
+Chat, Models, Settings (Session 1) and **Spectre** (S2.5); the rest render one tokenized
+`PlaceholderView`.
 
 ## Dependency rules (enforced by imports)
 - Views → ViewModels, DesignSystem. ViewModels → Inference (protocol), Services, Models.
@@ -62,8 +64,14 @@ Chat, Models, Settings; the rest render one tokenized `PlaceholderView`.
 `InferenceEngine.telemetry: AsyncStream<TelemetryEvent>` (declared in `Inference/InferenceEngine.swift`).
 **All contract cases are emitted:** `.lifecycle`, `.firstToken(ttft:)`, `.throughput` (tok/s),
 `.context(used:capacity:)` (used = prompt+generated; capacity = model `max_position_embeddings`, read by
-`ModelManager` and passed via `ResolvedModel`), `.completed`. Session-1's only consumer is
-`ChatMetricsBar`; **Spectre subscribes here later** — this session builds only the seam.
+`ModelManager` and passed via `ResolvedModel`), `.completed`.
+
+**Single consumer, many readers (S2.5).** `AsyncStream` supports exactly one iterator, so
+`Services/TelemetryHub` is *the* consumer and re-broadcasts to registered sinks. It is started by
+`AppEnvironment` **at launch, not by a view** — Spectre has to render live even if the user never
+opens Chat. `ChatViewModel` registers a sink (its Session-2 handling is unchanged); `SpectreViewModel`
+reads the hub's observable state. Adding a second stream to `InferenceEngine` would be a seam
+amendment and is TyPod's call — it was not needed.
 
 ## Persistence (Session 2)
 `Services/ConversationStore` (`@MainActor @Observable`) is the app-facing surface and the sole

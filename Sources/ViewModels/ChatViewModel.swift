@@ -22,13 +22,16 @@ final class ChatViewModel {
     private let engine: any InferenceEngine
     private let models: ModelManager
     private let store: ConversationStore
+    /// Seam-1 arrives via the hub, not a direct subscription — `AsyncStream` has one
+    /// consumer and Spectre is the second (see `TelemetryHub`).
+    private let telemetry: TelemetryHub
     /// `mlx` | `llamacpp` | `remote:<provider>`. Supplied by the composition root —
     /// `InferenceEngine` deliberately gains no identity property (§7 forbids a
     /// contract amendment this session).
     private let engineID: String
 
     private var loadedModelID: String?
-    private var telemetryTask: Task<Void, Never>?
+    private var telemetrySink: UUID?
     private var genTask: Task<Void, Never>?
 
     /// Seam-1 events for the in-flight assistant message. Fed from `apply(_:)` — the
@@ -39,11 +42,13 @@ final class ChatViewModel {
         engine: any InferenceEngine,
         models: ModelManager,
         store: ConversationStore,
+        telemetry: TelemetryHub,
         engineID: String = "mlx"
     ) {
         self.engine = engine
         self.models = models
         self.store = store
+        self.telemetry = telemetry
         self.engineID = engineID
     }
 
@@ -57,11 +62,10 @@ final class ChatViewModel {
     /// Begin observing Seam-1, open the store, restore the latest transcript, and
     /// preload the active model. Idempotent.
     func start() {
-        if telemetryTask == nil {
-            let telemetry = engine.telemetry
-            telemetryTask = Task { [weak self] in
-                for await event in telemetry { self?.apply(event) }
-            }
+        if telemetrySink == nil {
+            // The hub owns the one allowed iterator; this registers as a downstream
+            // consumer. `apply(_:)` itself is unchanged from Session 2.
+            telemetrySink = telemetry.addSink { [weak self] event in self?.apply(event) }
         }
         Task { [weak self] in
             guard let self else { return }

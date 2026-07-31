@@ -19,8 +19,14 @@ final class ChatSliceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: storeURL) }
 
         let store = ConversationStore(url: storeURL)
+        let engine = MLXInferenceEngine()
+        // S2.5: Seam-1 now arrives via the hub — the single stream consumer.
+        let hub = TelemetryHub()
+        hub.start(engine)
+        defer { hub.stop() }
+
         let vm = ChatViewModel(
-            engine: MLXInferenceEngine(), models: models, store: store, engineID: "mlx")
+            engine: engine, models: models, store: store, telemetry: hub, engineID: "mlx")
         vm.start()
         await wait(upTo: 60) { vm.status == .ready }
         XCTAssertEqual(vm.status, .ready, "model should load")

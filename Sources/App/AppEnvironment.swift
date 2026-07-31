@@ -13,6 +13,8 @@ final class AppEnvironment {
     let models: ModelManager
     let store: ConversationStore
     let engine: any InferenceEngine
+    /// Single Seam-1 consumer, shared by Chat's metrics bar and the Spectre view.
+    let telemetry: TelemetryHub
     let chat: ChatViewModel
 
     /// The engine's storage-facing identity. Lives here, not on `InferenceEngine`:
@@ -36,11 +38,18 @@ final class AppEnvironment {
         let store = ConversationStore()
         #endif
         let engine = MLXInferenceEngine()
+        let telemetry = TelemetryHub()
         self.settings = settings
         self.models = models
         self.store = store
         self.engine = engine
+        self.telemetry = telemetry
         self.chat = ChatViewModel(
-            engine: engine, models: models, store: store, engineID: Self.engineID)
+            engine: engine, models: models, store: store,
+            telemetry: telemetry, engineID: Self.engineID)
+
+        // Subscribe at launch, not from a view. Spectre has to render live even if the
+        // user never opens Chat, and the engine emits `.lifecycle(.idle)` at init.
+        telemetry.start(engine)
     }
 }

@@ -7,7 +7,13 @@ Answered items stay here with their resolution so the reasoning is not lost.
 
 ## Open
 
-### Q3 — Does the model ship with the app, or is it fetched?
+*(none — Q3 and Q4 answered 2026-07-30)*
+
+## Answered — detail
+
+### Q3 — Does the model ship with the app, or is it fetched? *(ANSWERED by TyPod, 2026-07-30)*
+**Fetched, never bundled.** A model is user data, not a build artifact. See DECISIONS #26.
+Original framing below.
 **Context.** Gate item G1 exposed this. The Bonsai model (473 MB) had to be pushed onto the
 iPhone out-of-band with `devicectl device copy to` before inference could run; a fresh install on
 any other device has an empty model store and a Chat tab that can only say "No model selected".
@@ -32,7 +38,7 @@ compiled out of Release builds entirely.
 **Options.** (1) Keep it — it is the only way to run the app against a scratch store for evidence.
 (2) Remove it once S2 merges and rely on unit tests alone.
 
-**Best guess: (1).** It cost four lines, it is `#if DEBUG`, and every future session that needs
+**Resolved: keep it (1).** `#if DEBUG` only, four lines, and every future session needing
 reproducible store-level evidence will want it.
 
 ---

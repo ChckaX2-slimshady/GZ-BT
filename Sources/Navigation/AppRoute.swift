@@ -43,10 +43,12 @@ enum AppRoute: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
-    /// Session 1: only Chat, Models and Settings are real; the rest are stubs.
+    /// Real destinations. Chat/Models/Settings landed in Session 1; **Spectre** is a
+    /// live Seam-1 view as of S2.5 (still behind the default-OFF global toggle).
+    /// The rest are stubs.
     var isImplemented: Bool {
         switch self {
-        case .chat, .models, .settings: true
+        case .chat, .models, .settings, .spectre: true
         default: false
         }
     }
