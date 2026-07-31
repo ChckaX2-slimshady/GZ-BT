@@ -56,12 +56,22 @@ final class TelemetryHubTests: XCTestCase {
         await drain(hub, untilEvents: 5)
     }
 
-    /// The stream is consumed asynchronously; poll rather than guess a sleep.
-    private func drain(_ hub: TelemetryHub, untilEvents count: Int) async {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        while hub.recentEvents.count < count && ContinuousClock.now < deadline {
+    /// The stream is consumed asynchronously; poll for the condition rather than guess
+    /// a sleep. Waiting on a *count* is not enough once a cap is involved — the event
+    /// log stops growing at `eventLimit` while the hub is still draining, so a
+    /// count-based wait returns early and races the assertion.
+    private func wait(
+        timeout: Duration = .seconds(10),
+        until condition: () -> Bool
+    ) async {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while !condition() && ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(5))
         }
+    }
+
+    private func drain(_ hub: TelemetryHub, untilEvents count: Int) async {
+        await wait { hub.recentEvents.count >= count }
     }
 
     // MARK: - Subscription
@@ -92,11 +102,16 @@ final class TelemetryHubTests: XCTestCase {
         hub.start(engine)
         defer { hub.stop() }
 
+        // Three distinct values: a duplicate iterator would show up as repeats or as a
+        // count above three, neither of which a single wait-for-last could hide.
         engine.emit(.throughput(tokensPerSecond: 50))
-        await drain(hub, untilEvents: 1)
+        engine.emit(.throughput(tokensPerSecond: 60))
+        engine.emit(.throughput(tokensPerSecond: 70))
+        await wait { hub.throughputSamples.count >= 3 }
 
-        XCTAssertEqual(hub.recentEvents.count, 1, "one event must be recorded exactly once")
-        XCTAssertEqual(hub.throughputSamples, [50])
+        XCTAssertEqual(hub.throughputSamples, [50, 60, 70],
+                       "each event recorded exactly once, in order")
+        XCTAssertEqual(hub.recentEvents.count, 3)
     }
 
     // MARK: - Fan-out
@@ -184,10 +199,14 @@ final class TelemetryHubTests: XCTestCase {
 
         let total = TelemetryHub.sampleLimit + 25
         for index in 0..<total { engine.emit(.throughput(tokensPerSecond: Double(index + 1))) }
-        await drain(hub, untilEvents: TelemetryHub.eventLimit)
+        // Wait for the *last* emitted sample specifically — the event log caps out at
+        // `eventLimit` long before the hub has drained all `total` events.
+        await wait { hub.throughputSamples.last == Double(total) }
 
         XCTAssertEqual(hub.throughputSamples.count, TelemetryHub.sampleLimit)
         XCTAssertEqual(hub.throughputSamples.last, Double(total), "newest sample is kept")
+        XCTAssertEqual(hub.throughputSamples.first, Double(total - TelemetryHub.sampleLimit + 1),
+                       "oldest samples are dropped, not the newest")
     }
 
     func testEventLogIsCappedAndNewestFirst() async {
@@ -197,13 +216,13 @@ final class TelemetryHubTests: XCTestCase {
         defer { hub.stop() }
 
         let total = TelemetryHub.eventLimit + 10
+        let newest = String(format: "%.1f tok/s", Double(total))
         for index in 0..<total { engine.emit(.throughput(tokensPerSecond: Double(index + 1))) }
-        await drain(hub, untilEvents: TelemetryHub.eventLimit)
+        // Same reason as above: the count hits the cap before the hub finishes draining.
+        await wait { hub.recentEvents.first?.detail == newest }
 
         XCTAssertEqual(hub.recentEvents.count, TelemetryHub.eventLimit)
-        XCTAssertEqual(hub.recentEvents.first?.detail,
-                       String(format: "%.1f tok/s", Double(total)),
-                       "newest first")
+        XCTAssertEqual(hub.recentEvents.first?.detail, newest, "newest first")
     }
 
     func testFailedLifecycleIsSurfacedNotSwallowed() async {
