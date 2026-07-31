@@ -80,6 +80,19 @@ These rules exist because each one was violated at least once. They are not hypo
   **no new `TelemetryEvent` case** — `Sources/Inference/` byte-identical to the S2 tag.
   Seam-1 has now survived both halves of its falsification test (DECISIONS #23, #28).
   Tag `v0.2.5-phoenix-s2.5`.
+- **S3 recon** — read-only; `Sources/` byte-identical to the S2.5 tag, `S3_RECON.md` the only
+  addition. Ground truth for the downloader: the substrate calls **`HubApi`
+  (swift-transformers), not swift-huggingface directly**, and only `HubApi` verifies SHA256 —
+  swift-huggingface's `computeFileHash` has no callers. **`useBackgroundSession: true` aborts
+  the process** (uncatchable `NSGenericException`, SIGABRT — verified by running it, not by
+  reading it); foreground works. `HubApi` materialises two levels below what
+  `ModelManager.scan()` sees, and its `progressHandler` is not `@Sendable` so it will not
+  compile from `@MainActor` code under strict concurrency. Seam-1 holds up for a remote engine;
+  `InferenceEngine.load` and `GenerationSummary` do not. **14 decisions open for TyPod — S3
+  cannot be specced until they are answered.** Tag `v0.2.6-phoenix-s3-recon`.
 - **Open threads:** models are fetched, never bundled (DECISIONS #26) — the HuggingFace
-  downloader is what makes a fresh device self-sufficient · GRDB re-evaluated at S6 when
-  FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history) still unscoped.
+  downloader is what makes a fresh device self-sufficient, and **S3_RECON.md is its ground
+  truth** · background download is **not available as shipped** (see S3 recon), so a 473 MB
+  transfer dies when iOS backgrounds the app — direction not yet chosen · GRDB re-evaluated
+  at S6 when FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history) still
+  unscoped, and the two macOS perf figures in ARCHITECTURE.md are unreconciled (S3_RECON §6).
