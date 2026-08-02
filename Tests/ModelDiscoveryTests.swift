@@ -6,9 +6,9 @@ import XCTest
 final class ModelDiscoveryTests: XCTestCase {
 
     @MainActor
-    func testDiscoversSeededBonsaiModel() throws {
+    func testDiscoversSeededBonsaiModel() async throws {
         let manager = ModelManager()
-        manager.scan()
+        await manager.scan()
 
         try XCTSkipIf(
             !FileManager.default.fileExists(atPath: ModelManager.modelsRoot.path),

@@ -91,10 +91,27 @@ These rules exist because each one was violated at least once. They are not hypo
   `InferenceEngine.load` and `GenerationSummary` do not. **All 14 decisions ratified by TyPod
   2026-07-31 — see `BUILD_SESSION_3.md` §1**, which carries 8 into S3 and defers the rest with
   destinations (S3.25 · S3.5 · S3.75). Tag `v0.2.6-phoenix-s3-recon`.
-- **Open threads:** models are fetched, never bundled (DECISIONS #26) — the HuggingFace
-  downloader is what makes a fresh device self-sufficient, and **S3_RECON.md is its ground
-  truth** · background download is **not available as shipped** (see S3 recon) and S3 ships
-  **foreground-only** (BUILD_SESSION_3 §1 #3), so iOS must keep the app open for a 473 MB
-  transfer; whether background is cheap later is BUILD_SESSION_3 §4.6 · GRDB re-evaluated
-  at S6 when FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history) still
-  unscoped, and the two macOS perf figures in ARCHITECTURE.md are unreconciled (S3_RECON §6).
+- **Session 3** — model download & management. A fresh device can now get a model without a
+  developer attached (the hole DECISIONS #26 opened deliberately). `ModelDownloader`
+  (`@MainActor` façade) + `ModelDownloadEngine` (actor owning `HubApi`) — the
+  `ConversationStore`/`ConversationDatabase` pair, not `TelemetryHub`, because the problem is
+  passing a non-`Sendable` handler *into* a non-isolated API. Preflight is metadata-only, so
+  free-space and collision refusals happen before any byte moves. Manifest `.gzbt-model.json`
+  written last; presence = complete. **`Sources/Inference/` byte-identical to the S2.5 tag**
+  through an entire new subsystem. **All 13 exit criteria met**, including E10: tyFone fetched
+  `Llama-3.2-1B-Instruct-4bit` itself (117.1 ms TTFT, 32.2 tok/s) with no developer attached —
+  the DECISIONS #26 hole is closed. Tag `v0.3.0-phoenix-s3`.
+- **Open threads:** **resume is per-file, not per-byte** (DECISIONS #45) — completed files are
+  reused across an interruption (968 MB retained, 6.5 s retry) but a partially-transferred file
+  restarts from zero (114 MB discarded, 77 s retry), so on foreground-only iOS backgrounding
+  during the 473 MB weight file loses that file · **one model costs ~1.4 GB across three
+  locations** (store + retained HF cache + CFNetwork temp staging, DECISIONS #47), and the model
+  store is **in iOS backup** — both are store policy and TyPod's call, QUESTIONS **Q6** ·
+  background download is **not available as shipped**, but §4.6 is now answered **YES**
+  (DECISIONS #44): `HubApi` resolves URLs and hashes without downloading, so a background
+  transfer later is a scoped ~200-line item, not an open question · `getFileMetadata` ignores
+  `revision` when listing files, a trap if a session ever pins one, QUESTIONS **Q5** · GRDB
+  re-evaluated at S6 when FTS5 lands (DECISIONS #21) · Spectre internals (benchmarks, history)
+  still unscoped; ARCHITECTURE.md's macOS perf row now carries its honest caveat but the real
+  reconciliation is S3.75's first output · S3.25 (Seam-1 amendment) and S3.5 (one remote
+  provider) are unstarted.

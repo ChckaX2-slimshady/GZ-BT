@@ -29,7 +29,7 @@ struct RootNavigationView: View {
         case .chat:
             ChatView(vm: env.chat, store: env.store)
         case .models:
-            ModelsView(manager: env.models)
+            ModelsView(manager: env.models, downloader: env.downloader, engine: env.engine)
         case .settings:
             SettingsView()
         case .spectre:

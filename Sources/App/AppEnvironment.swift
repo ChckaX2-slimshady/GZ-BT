@@ -11,6 +11,9 @@ import Observation
 final class AppEnvironment {
     let settings: AppSettings
     let models: ModelManager
+    /// Owns `HubApi` and the model-store writes. Built here so a download survives
+    /// navigating away from the Models tab.
+    let downloader: ModelDownloader
     let store: ConversationStore
     let engine: any InferenceEngine
     /// Single Seam-1 consumer, shared by Chat's metrics bar and the Spectre view.
@@ -41,6 +44,7 @@ final class AppEnvironment {
         let telemetry = TelemetryHub()
         self.settings = settings
         self.models = models
+        self.downloader = ModelDownloader(manager: models)
         self.store = store
         self.engine = engine
         self.telemetry = telemetry

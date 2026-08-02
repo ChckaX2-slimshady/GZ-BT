@@ -19,6 +19,16 @@ packages:
   mlx-swift:
     url: https://github.com/ml-explore/mlx-swift
     exactVersion: 0.31.6
+  # swift-transformers is ALREADY in the graph transitively (mlx-swift-lm 2.31.3 ->
+  # swift-transformers 1.2.1) and MLXLMCommon/Load.swift calls HubApi from it. S3's
+  # ModelDownloader calls HubApi directly, so the dependency is declared rather than
+  # relied on by implicit transitive module visibility. This is not a new package
+  # (DECISIONS #8): the pin below is byte-for-byte the one already in Package.resolved
+  # — same location (NO .git suffix, which is how SwiftPM recorded it) and same version.
+  # A competing constraint here would rewrite Package.resolved and fail S3 E12.
+  swift-transformers:
+    url: https://github.com/huggingface/swift-transformers
+    exactVersion: 1.2.1
 
 settings:
   base:
@@ -38,6 +48,9 @@ targets:
         product: MLXLLM
       - package: mlx-swift-lm
         product: MLXLMCommon
+      # `Hub` is the swift-transformers library that vends HubApi (ModelDownloader).
+      - package: swift-transformers
+        product: Hub
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.gzbt.app

@@ -8,7 +8,7 @@ final class ChatSliceTests: XCTestCase {
     @MainActor
     func testChatStreamsAndReportsMetrics() async throws {
         let models = ModelManager()
-        models.scan()
+        await models.scan()
         try XCTSkipUnless(models.activeModel != nil,
                           "no model seeded at \(ModelManager.modelsRoot.path)")
 

@@ -187,6 +187,246 @@ and wired 2026-07-25 before merge.)
     know has arrived, deriving `context_used` as `promptTokens + generatedTokens` exactly as the
     engine defines it. **No seam change**; two regression tests cover it.
 
+## Ratified by TyPod — Build Session 3 (2026-08-02)
+
+The first eight carry `S3_RECON.md`'s 14 decisions into S3 per BUILD_SESSION_3 §1.
+
+29. **`HubApi` (swift-transformers) is the one HuggingFace path.** Not `HubClient`
+    (swift-huggingface), whose `computeFileHash` is dead code with no callers; only `HubApi`
+    verifies SHA256 live. The MLX substrate already calls `HubApi`
+    (`MLXLMCommon/Load.swift:22–39`), so using it keeps **one** HF path. Two would be a silent
+    substrate divergence (Gotcha #1). Recon #1.
+
+30. **`swift-transformers` is declared in `project.yml` at the already-resolved pin.** It was
+    already in the graph transitively (`mlx-swift-lm 2.31.3 → swift-transformers 1.2.1`); S3
+    calls it directly, so the dependency is declared rather than relied on as implicit
+    transitive module visibility. This does not violate #8 — it makes a true thing explicit.
+    The pin is copied verbatim from `Package.resolved`, **including the missing `.git`
+    suffix** (`https://github.com/huggingface/swift-transformers`), because a URL mismatch
+    rewrites `location` and would fail E12 for a purely cosmetic reason. Verified:
+    `Package.resolved` md5 `ccbb19626988d9597d06297a9fd0e2f0` before and after both
+    `xcodegen generate` and a full build. Recon #2.
+
+31. **Foreground-only.** `HubApi(useBackgroundSession: true)` aborts the process with an
+    uncatchable `NSGenericException` (SIGABRT) — no `do/catch` at any call site contains it
+    (S3_RECON §3.1a, reproduced twice). `ModelDownloadEngine` hardcodes `false`. iOS states the
+    constraint in the UI rather than pretending the transfer survives backgrounding. Recon #3.
+
+32. **Download to `HubApi`'s cache, then move into the store on completion.** Not `downloadBase`
+    retargeting, not discovery changes. `downloadBase` is set to `…/GZ-BT/Downloads` — beside the
+    store, so the completion move is a same-volume rename, and deliberately *outside* `Models/`
+    so a partially-materialized repo is never visible to `scan()`. Recon #4.
+
+33. **Directory name = last path component of the repo id.** `prism-ml/Ternary-Bonsai-1.7B-mlx-2bit`
+    → `Ternary-Bonsai-1.7B-mlx-2bit`, which is exactly the existing store dir and the only
+    `model_id` in `message_telemetry`. No migration. The full id survives in the manifest's
+    `repo_id`. Recon #5.
+
+34. **Keep the cache.** A same-volume move is a rename, so the ~946 MB *peak* does not occur at
+    install time. **Measured consequence not stated when this was ratified: the cache is also
+    kept after completion, so an installed model costs ~2× on disk permanently** — 473 MB in
+    `~/.cache/huggingface/hub` alongside 473 MB in the store, confirmed by `du` after E1. That
+    is the price of resume remaining available (#37). Cross-volume stores (an external SSD)
+    would additionally pay a real copy; recorded, not solved. Recon #6.
+
+35. **Manifest presence = complete.** Partial downloads never enter the store, so a directory
+    carrying the manifest is known-good. Recon #7.
+
+36. **Progress crosses isolation via a `Sendable` snapshot, owned by an actor.** Recon #14 named
+    the `TelemetryHub` pattern; the actual shape is the **`ConversationDatabase` +
+    `ConversationStore`** pair, because the problem is the inverse of `TelemetryHub`'s.
+    `TelemetryHub` is `@MainActor @Observable` *consuming* an already-`Sendable` `AsyncStream`;
+    it owns no handler and crosses no boundary. S3's problem is passing a **non-`Sendable`
+    `(Progress) -> Void` INTO a non-isolated API**. So `ModelDownloadEngine` is an `actor` that
+    owns `HubApi` (as `ConversationDatabase` owns the `sqlite3` handle) and `ModelDownloader` is
+    the `@MainActor @Observable` façade holding no unsafe state (as `ConversationStore` does).
+    The handler is built inside a `nonisolated static` function, converts `Progress` to a
+    `Sendable ModelDownloadProgress` on the spot, and lets the `Progress` die there — so it
+    compiles under `SWIFT_STRICT_CONCURRENCY: complete` with no `@unchecked Sendable`, no
+    `nonisolated(unsafe)`, and no access-control loosening. The callback signature matches the
+    seam's own shape, `(@Sendable (Double) -> Void)?` on `InferenceEngine.load`.
+
+37. **Free-space requirement is `2 × total + headroom`, headroom = `max(1 GB, 10% of total)`.**
+    The `2 ×` is not conservatism: `HubClient` stores the body into its cache blob and then
+    **copies** it to the materialized snapshot directory, so both exist simultaneously —
+    measured at 968,098,633 B on disk for a 495,528,947 B model during E3. The headroom is a
+    chosen number recorded here rather than an unexplained constant, so a model can never be
+    the thing that fills the volume. Refusal names both figures.
+
+    **Correction to BUILD_SESSION_3 §4.2**, which cites "the iOS vs macOS API difference":
+    there is none. `volumeAvailableCapacityForImportantUsage` is `macos(10.13)+ / ios(11.0)+`
+    (S3_RECON §3.2) and both deployment targets clear it. The difference is *semantic* — the key
+    reports space including what the system expects to reclaim by purging caches — so the same
+    key is used on both platforms.
+
+38. **The manifest records `etag` + `etag_kind`, never a field named `sha256`.**
+    Amends BUILD_SESSION_3 §4.3's example schema. Per file:
+    `{ "path": …, "bytes": N, "etag": …, "etag_kind": "sha256" | "git-blob" }`.
+
+    HuggingFace's ETag is a SHA256 **only for LFS files**; for everything else it is a 40-hex
+    git blob hash. Measured across the three starter repos: 2/6, 1/8, and 2/6 entries are real
+    SHA256s, and those are exactly the weight files. `HubApi` verifies content only when
+    `isValidSHA256(etag)` holds, so its integrity coverage is precisely the LFS files and
+    nothing else. Writing `"sha256"` for all six would have put a git blob hash under a false
+    name in **our own artifact** — Gotcha #5 aimed at something we produce, not something we
+    consume. Asserted by `ModelDownloadTests.testManifestRoundTripsWithSpecifiedJSONShape`,
+    which fails if a `sha256` key ever appears.
+
+39. **Manifest absent = legacy, assume complete. Manifest present but unreadable = broken.**
+    The asymmetry BUILD_SESSION_3 §4.3 requires, with one correction to that section: it states
+    "the existing hand-copied model has no manifest." **It has `.hfmanifest.json`** — verified
+    on disk, and verified absent from the live HF listing for
+    `prism-ml/Ternary-Bonsai-1.7B-mlx-2bit`, so it is a local artifact of whatever originally
+    fetched the model. No `HubApi` download reproduces it: `HubApi` writes
+    `.cache/huggingface/download/<file>.metadata` sidecars instead (3 lines — commit sha, etag,
+    unix timestamp — confirmed by materialising a real one).
+
+    Therefore completeness is keyed on the **exact filename `.gzbt-model.json`**, deliberately
+    distinct. A loose "does it have a manifest?" check would read the legacy directory as
+    GZ-BT-complete and invert §4.4's collision asymmetry. Asserted by
+    `testManifestFilenameIsDistinctFromTheLegacyHFArtifact`.
+
+40. **Deleting a model does not touch telemetry.** `message_telemetry.model_id` is a plain
+    string with no foreign key. History outliving the model is deliberate — Spectre's
+    comparative work depends on being able to reason about a model that is no longer installed.
+    **A later session must not "fix" this into a cascade.** Asserted against a non-zero row
+    count by `testDeletingAModelLeavesTelemetryRowsIntact`, so the test cannot pass vacuously.
+
+41. **`unload()` before delete — forced, not chosen.** `MLXInferenceEngine` holds `container`
+    and `loaded` `private`, and `InferenceEngine` exposes no accessor for what is loaded, so a
+    refuse-if-loaded rule would require adding a read property to the protocol — which §5
+    forbids this session. `unload()` is already on the protocol, so it is called
+    unconditionally before the directory is removed.
+
+    The failure this prevents: MLX keeps weights resident, so `generate()` would keep working
+    from RAM against a deleted directory while `reconcileSelection()` had already silently
+    repointed `activeModelID` at a different model — and `TelemetryHub.lifecycle` reports
+    `.loaded` with no model identity, so nothing in the app could tell which model produced the
+    output.
+
+42. **`ModelManager.root` is injectable; `GZBT_STORE_PATH` is not extended.** `modelsRoot` was a
+    computed static with no seat, so every downloader/manifest/collision test would have written
+    into the real model store. The mechanism is the one `ConversationStore.init(url:)` already
+    established. `GZBT_STORE_PATH` gates the conversation DB only and is left alone. An injected
+    root also suppresses persisting `activeModelID` to the shared `UserDefaults` key, so a test
+    run cannot silently repoint the developer's active model.
+
+43. **The download glob is `["*.safetensors", "*.json", "*.jinja"]`, chosen deliberately.**
+    §4.2 step 3 does not fix it. This matches what the substrate itself downloads
+    (`MLXLMCommon/Load.swift`), so an installed model is the file set MLX expects. It **excludes
+    `tokenizer.model`**; verified against live listings that all three starter repos ship
+    `tokenizer.json`, and `ModelManager.isUsableModelDirectory` — the same predicate discovery
+    uses — is run against the materialized directory *before* the move and *before* the
+    manifest, turning any future miss into a loud failure instead of an invisible model.
+
+## Findings — Build Session 3
+
+44. **§4.6 is answered YES: `HubApi` exposes resolved file URLs and expected hashes without
+    downloading.** Two symbols, called this session against swift-transformers 1.2.1
+    (`58c4bc11963a`), not merely read:
+
+    - `getFilenames(from:matching:) -> [String]` — one GET to `/api/models/<id>/revision/<rev>`,
+      parsing `siblings`.
+    - `getFileMetadata(from:revision:matching:) -> [FileMetadata]` — one **HEAD** per file
+      (`HubApi.swift:1059`), returning `commitHash`, `etag`, `location` (the resolved CDN URL),
+      and `size`.
+
+    Cost: 1 + N small requests, no content transfer. Measured totals — Llama-3.2-1B 712,575,975 B
+    at `08231374ee…`; Qwen2.5-3B 1,746,177,197 B at `4f83f8f146…`; Bonsai 495,528,947 B at
+    `5f3e306330…`.
+
+    **Consequence, recorded and deliberately not built:** a future background transfer keeps
+    `HubApi` for resolution and owns only the byte movement with a delegate-based background
+    `URLSession`. That is the ~200-line path §4.6 describes, and it is now a scoped future item
+    rather than an open question.
+
+45. **Resume works at file granularity and NOT at byte granularity.** E3's criterion is met, but
+    the honest characterisation matters and the two runs measure different things:
+
+    - **Between files** — interrupting after `model.safetensors` completed retained
+      968,098,633 B and the retry finished in **6.5 s** against a 50.3 s cold baseline. Completed
+      files are reused.
+    - **Mid-file** — interrupting 15 s in, at 33.3% with **114,418,584 B** of the weight file
+      staged in `/T/CFNetworkDownload_*.tmp`, retained only **9,126 B** (the two small completed
+      blobs). The partial was discarded and the retry took **77.3 s** — *slower* than a cold
+      start. The weight file restarted from zero.
+
+    This is exactly what S3_RECON §2.3 predicts: `HubApi` computes `incompleteDestination` and
+    never passes it to `downloadFile` (`:823–827` vs `:849–856`), so resume can only occur
+    inside swift-huggingface's ETag+cache branch, which a cancelled task never reaches. **A
+    restart is reported as a restart.** Practical effect for foreground-only iOS: backgrounding
+    the app during the 473 MB weight file loses that file's progress entirely.
+
+46. **`HubApi.snapshot` returns the destination *normally* when the task is cancelled** rather
+    than throwing (`HubApi.swift:966–968`). Trusting its return value would move a partial
+    directory into the store as a complete model. `ModelDownloadEngine.download` therefore checks
+    `Task.isCancelled` after `snapshot` returns, deletes the materialized tree, and throws.
+    Verified by E4: `store contents after cancel: []`, nothing discoverable, and the failure
+    surfaces as `NSURLErrorDomain -999 "cancelled"` rather than a silent success.
+
+47. **Every transfer strands CFNetwork staging files in the temp directory — including
+    successful ones. A completed 473 MB model occupies ~1.4 GB across three locations.**
+
+    First observed as 33 `CFNetworkDownload_*.tmp` files totalling **2.9 GB** after the
+    E1/E3/E4 runs, with sizes matching Bonsai's files exactly. Isolated afterwards by clearing
+    the temp directory and running **one clean, uncancelled** download: it left **6 files,
+    473 MB — one per downloaded file**. So the leak is *not* cancellation-specific; it is the
+    normal path.
+
+    Full steady-state cost of one installed 473 MB model:
+
+    | Location | Bytes | Persists? |
+    |---|---|---|
+    | `Application Support/GZ-BT/Models/` | 473 MB | permanently — the model |
+    | `~/.cache/huggingface/hub` (iOS: `Library/Caches`) | 473 MB | permanently, per #34 |
+    | `NSTemporaryDirectory()/CFNetworkDownload_*.tmp` | 473 MB | until the system purges |
+
+    These files are created below `HubApi`, by CFNetwork's own download staging — nothing in
+    `Sources/` creates, names, or can see them without guessing at a private filename pattern.
+    Recorded per E4's "cache-cleanup behaviour recorded either way". **Not fixed:** the temp
+    directory is system-purgeable, and reaching under the ratified HF layer to delete files it
+    owns is exactly the kind of routing-around Gotcha #1 forbids. It matters most on iOS, where
+    `tmp/` purging is not guaranteed on any schedule the app controls. See QUESTIONS Q6.
+
+48. **`HubApi`'s snapshot progress counts files, not bytes — so no byte counter is displayed.**
+    `Progress(totalUnitCount: filenames.count)` with one pending unit per file
+    (`HubApi.swift:942–944`). Multiplying `fractionCompleted` by the preflighted total yields a
+    number that looks like bytes and is not: measured on Bonsai, "1 of 6 files complete" renders
+    as 82.6 MB whether the completed file was `config.json` (2,939 B) or `model.safetensors`
+    (484,049,216 B) — five orders of magnitude apart, displayed identically. `getFilenames`
+    returns `Array(Set<String>)`, so the order is not even stable between runs and the error is
+    not a consistent bias.
+
+    An earlier draft of this session's UI shipped exactly that derived byte figure, and it was
+    caught only because two live runs reported the same "82.6 MB" with 2,991 B and 484,049,292 B
+    actually on disk. The UI now reports a percentage and a file count, with the total size shown
+    separately. Gotcha #5 applied to our own readout.
+
+49. **`getFileMetadata(from:revision:matching:)` does not forward `revision` to its internal
+    `getFilenames` call** (`HubApi.swift:1108`) — the file *list* always comes from `main` while
+    the per-file metadata comes from `revision`. Harmless at `revision: "main"`, which is all S3
+    uses, and a trap the moment a session pins a revision. `snapshot` does **not** share the
+    defect: it forwards correctly at `:941`. Upstream, not ours. See QUESTIONS Q5.
+
+50. **E10 met — the session's goal is proved on hardware.** `mlx-community/Llama-3.2-1B-Instruct-4bit`
+    was downloaded **by the phone itself**, from a repo id tapped in the Models tab, with no
+    `devicectl device copy to` and no developer attached. The device manifest independently
+    reproduces the macOS preflight — `revision 08231374eeacb049a0eade7922910865b8fce912`,
+    `total_bytes 712575975` — having never seen it, which is the strongest available evidence
+    that preflight and transfer agree. `.cache` was not carried into the store, and
+    `Downloads/models/mlx-community/` was left **empty**, confirming the install is a move and
+    not a copy.
+
+    It then loaded and generated: `message_telemetry` on device carries
+    `model_id = Llama-3.2-1B-Instruct-4bit`, **ttft_ms 117.1, tokens_per_sec 32.2** (iPhone 15
+    Pro Max, A17 Pro). Two models now coexist in the device store (Llama 2 rows, Bonsai 7),
+    which also exercises `reconcileSelection`'s multi-model path.
+
+    **These numbers are not a baseline** and are deliberately not added to ARCHITECTURE's
+    performance table: same absent protocol as #13 — no fixed prompt, no warmup, no repetition.
+    A 1B-at-4bit model and a 1.7B-at-2bit model are not comparable on one turn each. Recorded as
+    exit-criterion evidence only; S3.75 owns comparable numbers.
+
 ## Deferred / out of scope (unchanged from FEATURE_SCOPE)
 Remote APIs, GGUF, persistence, iCloud, HATS/Memory/Wiki/Tools internals, Spectre internals
 beyond Seam-1, theming UI. Light theme is implemented but the app pins dark (primary) for the

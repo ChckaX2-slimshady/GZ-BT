@@ -266,7 +266,7 @@ final class ChatViewModel {
     }
 
     private func ensureModelLoaded() async {
-        if models.models.isEmpty { models.scan() }
+        if models.models.isEmpty { await models.scan() }
         guard let active = models.activeModel else { status = .noModel; return }
         if loadedModelID == active.id, status == .ready { return }
         status = .loading

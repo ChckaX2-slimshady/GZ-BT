@@ -14,4 +14,9 @@ enum Log {
 
     /// Seam-1 telemetry mirrored to the log for device runtime proof (gate item G1).
     static let telemetry = Logger(subsystem: subsystem, category: "telemetry")
+
+    /// Model store: downloads, installs, deletions. Read back on-device with
+    /// `log stream --predicate 'subsystem == "ai.gzbt.app"'` to tell an interrupted
+    /// transfer apart from a network failure.
+    static let models = Logger(subsystem: subsystem, category: "models")
 }

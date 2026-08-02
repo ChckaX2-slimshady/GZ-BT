@@ -6,8 +6,26 @@ struct ModelRow: View {
     let model: DiscoveredModel
     let isActive: Bool
     let onSelect: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
+        // The delete control is a sibling of the select button, not nested inside it:
+        // a Button within a Button does not reliably route taps on either platform.
+        HStack(spacing: Space.sm) {
+            selectButton
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 15))
+                    .foregroundStyle(theme.textTertiary)
+                    .frame(width: 34, height: 34)
+                    .membraneSurface(cornerRadius: Radius.md, elevation: .low)
+            }
+            .buttonStyle(.plain)
+            .help("Delete \(model.name) from the model store")
+        }
+    }
+
+    private var selectButton: some View {
         Button(action: onSelect) {
             HStack(spacing: Space.md) {
                 Image(systemName: "cube.transparent")

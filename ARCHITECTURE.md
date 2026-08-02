@@ -13,7 +13,7 @@ with **DesignSystem orthogonal** to all UI.
 | **Views** | render state; read DesignSystem tokens | hold engine refs; hardcode visual values |
 | **ViewModels** | presentation state (`@MainActor @Observable`) | import DesignSystem tokens; scan the filesystem; import MLX |
 | **Inference** | engine-neutral contract + MLX binding | scan the filesystem; leak MLX types past the seam |
-| **Services** | discovery/selection (`ModelManager`), settings, **chat persistence** (`ConversationStore`) | let SQL escape the store |
+| **Services** | discovery/selection (`ModelManager`), settings, **chat persistence** (`ConversationStore`), **model download** (`ModelDownloader` + `ModelDownloadEngine`) | let SQL escape the store; let `HubApi` or a `Progress` escape the downloader |
 | **Models** | domain value types | depend upward |
 | **Utilities** | small helpers | hold state |
 | **DesignSystem** | every color/type/spacing/radius/material/motion/gradient token | depend on anything above SwiftUI |
@@ -30,9 +30,11 @@ Views/         Chat/{ChatView,ChatMessageRow,StreamingIndicatorView,ChatMetricsB
 ViewModels/    ChatViewModel · ModelsViewModel · SpectreViewModel
 Inference/     InferenceEngine (protocol + neutral types) · MLXInferenceEngine (actor)
 Services/      ModelManager · AppSettings · ConversationStore · ConversationDatabase ·
-               SQLite · TelemetryAccumulator · TelemetryHub
+               SQLite · TelemetryAccumulator · TelemetryHub ·
+               ModelDownloader (@MainActor façade) · ModelDownloadEngine (actor, owns HubApi)
 Models/        ChatMessage · DiscoveredModel · ResolvedModel · GenerationConfig ·
-               Conversation · PersistedMessage · MessageTelemetry
+               Conversation · PersistedMessage · MessageTelemetry ·
+               ModelManifest · ModelDownload (progress/plan/state/errors)
 Utilities/     ByteFormat · Log
 ```
 
@@ -59,6 +61,38 @@ Chat, Models, Settings (Session 1) and **Spectre** (S2.5); the rest render one t
    and runs generation inside `ModelContainer.perform { generate(input:parameters:context:) }`,
    translating MLX `Generation` → neutral `GenerationEvent`. No MLX type crosses the boundary.
 4. `ModelManager` resolves a `DiscoveredModel` → `ResolvedModel(url:)`; the engine never scans disk.
+
+## Download flow (Session 3)
+
+`ModelsView` → `ModelsViewModel` → `ModelDownloader` (`@MainActor @Observable`) →
+`ModelDownloadEngine` (`actor`) → `HubApi`.
+
+1. **Preflight, metadata only.** `HubApi.getFilenames` (one GET) + `HubApi.getFileMetadata`
+   (one HEAD per file) yield the file set, per-file bytes, per-file ETag, and the resolved
+   commit SHA — **without transferring content**. This is what lets steps 2 and 3 refuse before
+   any byte moves.
+2. **Free space.** Refuse unless `2 × total + max(1 GB, 10%)` is available
+   (`volumeAvailableCapacityForImportantUsage`, same key on both platforms). The `2 ×` is real:
+   the transfer caches the body and then copies it to the snapshot directory.
+3. **Collision (§4.4).** Absent → proceed. GZ-BT manifest with a matching `repo_id` → already
+   installed. Manifest with a different `repo_id` → genuine collision, both ids named. **No**
+   GZ-BT manifest → unknown occupant, refuse. Never auto-rename: a silent rename would break
+   `activeModelID` and `message_telemetry.model_id`.
+4. **Transfer.** `HubApi.snapshot(matching: ["*.safetensors","*.json","*.jinja"])`,
+   `useBackgroundSession: false` — always. Progress crosses isolation as a `Sendable`
+   `ModelDownloadProgress`; the non-`Sendable` `Progress` never leaves the `nonisolated`
+   function that receives it.
+5. **Verify, then move, then manifest — in that order.** The materialized directory must satisfy
+   `ModelManager.isUsableModelDirectory` (the *same* predicate discovery uses) before it is moved;
+   the move into the store is a same-volume rename; `.gzbt-model.json` is written **last**, so a
+   crash mid-move can never leave a directory that looks complete.
+6. **Rescan.** `ModelManager.scan()` — `async`, tree walk off the main actor.
+
+`Sources/Inference/` is not involved at any step: the downloader puts files on disk, and the
+engine still only ever receives a resolved local `URL`. Downloading via
+`ModelConfiguration(id:)` / `LLMModelFactory.loadContainer` is deliberately **not** used — it
+would land weights in `HubApi`'s cache instead of GZ-BT's store and move the download path into
+`Inference/`.
 
 ## Seam-1
 `InferenceEngine.telemetry: AsyncStream<TelemetryEvent>` (declared in `Inference/InferenceEngine.swift`).
@@ -138,6 +172,12 @@ xcrun devicectl device install app --device <udid> <path>/Debug-iphoneos/GZ-BT.a
 |---|---|---|---|---|
 | macOS | M1 Air | ~0.23 s | ~68 | Ternary-Bonsai-1.7B-mlx-2bit |
 | **iOS** | **iPhone 15 Pro Max (A17 Pro), iOS 26.5** | **225 ms** | **76.3** | same |
+
+> **The macOS row is a Session-1 informal measurement; its protocol is undefined** — no fixed
+> prompt, no warmup, no repetition, and the turn shape was not recorded. Persisted values from
+> `message_telemetry` on the same machine range **49.7–56.1 tok/s** with TTFT **96.6–102.3 ms**.
+> A defined baseline arrives with the benchmark harness (S3.75); until then this number should
+> not be cited as one. See S3_RECON §6.
 
 Device numbers are from gate item **G1** — read out of `message_telemetry` in the SQLite store
 pulled off the phone with `devicectl device copy from`, not from a log line. They retire the
