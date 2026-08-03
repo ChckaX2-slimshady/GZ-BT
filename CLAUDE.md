@@ -106,7 +106,11 @@ These rules exist because each one was violated at least once. They are not hypo
   restarts from zero (114 MB discarded, 77 s retry), so on foreground-only iOS backgrounding
   during the 473 MB weight file loses that file · **one model costs ~1.4 GB across three
   locations** (store + retained HF cache + CFNetwork temp staging, DECISIONS #47), and the model
-  store is **in iOS backup** — both are store policy and TyPod's call, QUESTIONS **Q6** ·
+  store is **in iOS backup** — store policy and TyPod's call, QUESTIONS **Q6** (narrowed: the
+  temp third of that 1.4 GB is `tmp/`, which is not backed up) · **the free-space preflight
+  budgets 2× but the real peak is 3×** (DECISIONS #51), so a download can pass preflight and
+  still exhaust the volume — one-line fix, deliberately not made in S3 because it changes which
+  downloads are accepted and would need E5 + E1 re-run ·
   background download is **not available as shipped**, but §4.6 is now answered **YES**
   (DECISIONS #44): `HubApi` resolves URLs and hashes without downloading, so a background
   transfer later is a scoped ~200-line item, not an open question · `getFileMetadata` ignores

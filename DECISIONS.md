@@ -249,7 +249,9 @@ The first eight carry `S3_RECON.md`'s 14 decisions into S3 per BUILD_SESSION_3 �
 37. **Free-space requirement is `2 × total + headroom`, headroom = `max(1 GB, 10% of total)`.**
     The `2 ×` is not conservatism: `HubClient` stores the body into its cache blob and then
     **copies** it to the materialized snapshot directory, so both exist simultaneously —
-    measured at 968,098,633 B on disk for a 495,528,947 B model during E3. The headroom is a
+    measured at 968,098,633 B on disk for a 495,528,947 B model during E3.
+    **Superseded in part by #51: the real peak is `3 ×`, because #47 found a third simultaneous
+    copy in CFNetwork's temp staging. S3 ships the 2× figure; 3× is the correct one.** The headroom is a
     chosen number recorded here rather than an unexplained constant, so a model can never be
     the thing that fills the volume. Refusal names both figures.
 
@@ -383,10 +385,33 @@ The first eight carry `S3_RECON.md`'s 14 decisions into S3 per BUILD_SESSION_3 �
 
     These files are created below `HubApi`, by CFNetwork's own download staging — nothing in
     `Sources/` creates, names, or can see them without guessing at a private filename pattern.
-    Recorded per E4's "cache-cleanup behaviour recorded either way". **Not fixed:** the temp
-    directory is system-purgeable, and reaching under the ratified HF layer to delete files it
-    owns is exactly the kind of routing-around Gotcha #1 forbids. It matters most on iOS, where
-    `tmp/` purging is not guaranteed on any schedule the app controls. See QUESTIONS Q6.
+    Recorded per E4's "cache-cleanup behaviour recorded either way".
+
+    **Classification: a LIMIT, not a defect — and therefore not ours to clean up.** Both
+    platforms stage into the OS temporary directory, which has a system reaper:
+
+    | Platform | Measured path | Volume semantics |
+    |---|---|---|
+    | macOS | `$TMPDIR` = `/var/folders/j4/…/T/CFNetworkDownload_*.tmp` | Per-user temp. Reaped by `com.apple.bsd.dirhelper` (`/System/Library/LaunchDaemons/com.apple.bsd.dirhelper.plist`). **Same volume as the store** — `stat -f %d` returns `16777232` for both, so it competes for the same free space until reaped. |
+    | iOS | `<app container>/tmp/CFNetworkDownload_*.tmp` — verified on tyFone after the E10 download: 6 files including the full 663.1 MB weight | `NSTemporaryDirectory()`. Purgeable by the system when the app is not running, and (per Apple's container contract) not included in backup. |
+
+    So the bytes are reclaimable rather than stranded forever, which is why this is filed as a
+    limit. Two consequences follow and neither is hypothetical:
+
+    - **Reclaimable is not the same as reclaimed.** The staging sits on the same volume as the
+      store and is not purged on any schedule the app controls — the iOS copies were still
+      present hours after E10. Meanwhile `volumeAvailableCapacityForImportantUsage`, the key
+      #37 uses, *does* count purgeable space as available, so the free-space check and the
+      purge semantics are at least coherent with each other.
+    - **It is not ours to delete.** The files are created by CFNetwork beneath `HubApi`;
+      removing them would mean matching a private filename pattern in a directory the HF layer
+      owns. That is precisely the routing-around Gotcha #1 forbids. If it ever must be solved,
+      it belongs with the background-transfer work (#44), which already owns the byte movement.
+
+    Because it is a limit and not a defect, it does **not** relieve #51 — the free-space
+    preflight still has to budget for it. See also QUESTIONS Q6, whose backup half is narrowed
+    by this: `tmp/` is not backed up, so only the store's 473 MB inflates an iOS backup, not
+    the full ~1.4 GB.
 
 48. **`HubApi`'s snapshot progress counts files, not bytes — so no byte counter is displayed.**
     `Progress(totalUnitCount: filenames.count)` with one pending unit per file
@@ -426,6 +451,58 @@ The first eight carry `S3_RECON.md`'s 14 decisions into S3 per BUILD_SESSION_3 �
     performance table: same absent protocol as #13 — no fixed prompt, no warmup, no repetition.
     A 1B-at-4bit model and a 1.7B-at-2bit model are not comparable on one turn each. Recorded as
     exit-criterion evidence only; S3.75 owns comparable numbers.
+
+51. **The free-space preflight budgets `2 ×`, but #47's real peak footprint is `3 ×`. It
+    under-counts by one full copy of the model.** Finding only — **no code changed this
+    session**; the correct multiplier is stated here for whoever implements it.
+
+    **What the code actually computes** (`ModelDownloadPlan`, S3 as shipped):
+
+    ```
+    requiredBytes = totalBytes × 2 + headroomBytes
+    headroomBytes = max(1_000_000_000, totalBytes / 10)
+    ```
+
+    So it is **not** `1 × total_bytes` — the 2× for the cache-then-copy was budgeted from the
+    start (#37). E5's refusal reproduces exactly:
+
+    ```
+    available            = 15.86 GB   (volumeAvailableCapacityForImportantUsage)
+    totalBytes           = 15.86 GB   (the E5 plan sets total = available deliberately)
+    2 × totalBytes       = 31.72 GB
+    headroom = max(1 GB, totalBytes/10) = max(1 GB, 1.586 GB) = 1.586 GB
+    requiredBytes        = 31.72 + 1.586        = 33.31 GB   ← matches E5's message
+    ```
+
+    **Why 2× is still wrong.** #37 counted two simultaneous copies — the HF cache blob and the
+    materialized `downloadBase` snapshot. #47 established a **third**: CFNetwork's `tmp/`
+    staging, one full-size file per repo file, all still present at completion. At the moment
+    before the final rename, all three coexist:
+
+    | Copy | Location | Measured |
+    |---|---|---|
+    | CFNetwork staging | `tmp/CFNetworkDownload_*.tmp` | 473 MB (6 files) after a clean download |
+    | HF cache blob | `~/.cache/huggingface/hub` (iOS: `Library/Caches`) | 484,049,292 B at cancel |
+    | `downloadBase` snapshot | `…/GZ-BT/Downloads/models/<org>/<name>/` | 484,049,340 B at cancel |
+
+    E3 measured cache + `downloadBase` alone at **968,098,633 B** for a **495,528,947 B** model
+    — `1.95 ×`. Adding the third copy gives ≈ 1.46 GB, i.e. **≈ 2.95 ×**. All three sit on the
+    same volume (`stat -f %d` → `16777232` for both `$TMPDIR` and the store).
+
+    **Correct multiplier: `3 × total_bytes + max(1 GB, 10%)`.** For Bonsai that is 2.49 GB
+    rather than the 1.99 GB S3 currently demands; for Qwen2.5-3B, 5.4 GB rather than 3.7 GB.
+
+    **Consequence, stated plainly:** a download can pass preflight and still exhaust the volume.
+    The window is `1 × total_bytes` wide — on a volume with between `2 ×` and `3 ×` free, S3
+    accepts the job and can run the disk to zero mid-transfer. The 1 GB headroom floor absorbs
+    it only for models under ~1 GB. It is partially masked by
+    `volumeAvailableCapacityForImportantUsage` counting purgeable space (#47) as available, but
+    that is luck, not design: freshly-written staging is not reclaimable on any timeline the
+    check can rely on.
+
+    Not fixed here because changing the refusal threshold changes which downloads S3 accepts,
+    and S3 has already been verified end-to-end at 2×. It is a one-line change with a real
+    behavioural blast radius, so it belongs to a session that can re-run E5 and E1.
 
 ## Deferred / out of scope (unchanged from FEATURE_SCOPE)
 Remote APIs, GGUF, persistence, iCloud, HATS/Memory/Wiki/Tools internals, Spectre internals

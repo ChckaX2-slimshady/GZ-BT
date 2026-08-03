@@ -125,6 +125,62 @@ Actions (Home Screen) · What's New screen · Cost Report + Export
   External Proxy support
 - **Flagged for your call:** View Assistant (camera scene-description mini-app)
 
+## BUILD SESSION ROADMAP
+
+**This block maps tiers above onto build sessions. It amends the scope of record; it does not
+replace it.** Scope is still ratified by tier — a session number is a *delivery slot*, not a
+new authority. Where the two disagree, the tier wins.
+
+**Numbering is not contiguous and never was.** S4, S6 and S7 were named during Session 2 as
+one-line forward slots, *before* S3.25/.5/.75 were inserted by BUILD_SESSION_3 §1. So "S4"
+means "whenever HATS happens", not "the session after S3.75". There is no S5 — earlier greps
+that appeared to find one were matching `FTS5`.
+
+### Shipped
+
+| Session | Tag | Delivered |
+|---|---|---|
+| **S1** | `v0.1.0-phoenix-s1` | Shell, DesignSystem, MLX chat vertical slice, Seam-1 |
+| **S2** | `v0.2.0-phoenix-s2` | Persistence & session model; gates G1 (iPhone deploy), G2 (CI drift guard), G3 (S1 tagged) |
+| **S2.5** | `v0.2.5-phoenix-s2.5` | Spectre view as Seam-1 falsification test |
+| **S3 recon** | `v0.2.6-phoenix-s3-recon` | Read-only reconnaissance; `Sources/` byte-identical to S2.5 |
+| **S3** | `v0.3.0-phoenix-s3` | Model download & management. Closes DECISIONS #26's hole: a fresh device fetches its own model |
+
+Session specs exist for **S2** and **S3** only (`BUILD_SESSION_2.md`, `BUILD_SESSION_3.md`).
+S1 and S2.5 are recorded in DECISIONS alone.
+
+### Specced, in order — a dependency chain, not a preference
+
+From BUILD_SESSION_3 §1, which routed S3 recon's deferred decisions:
+
+| Session | Scope | Carries |
+|---|---|---|
+| **S3.25** | Seam-1 amendment. Half session | recon #10, #11 — `GenerationSummary` optionality; endpoint/credential seat on the load path |
+| **S3.5** | One remote provider | recon #8, #9 — credentials, Keychain |
+| **S3.75** | Benchmark harness | recon #12 — must run across *engines*, not just models, or it cannot test model-agnosticism. Also owns #13's real perf reconciliation |
+
+S3.75 needs S3.25 and S3.5 to exist first; that ordering is structural.
+
+### Named, not specced
+
+One-line forward references. Listed so they are not mistaken for a plan:
+
+| Session | Scope | Sole reference |
+|---|---|---|
+| **S4** | HATS (persona system) | `persona_id TEXT, -- forward slot for HATS (S4)` — BUILD_SESSION_2 §schema |
+| **S6** | FTS5 / search; the point where GRDB is re-evaluated | DECISIONS #21 |
+| **S7** | Sequential local council rounds on 8 GB | BUILD_SESSION_2 §G1 rationale, citing this doc's LLM Council |
+
+### Unallocated
+
+Everything else in Tier 1 has **no session number yet** — Tools & MCP (~50 tools), the Settings
+/ System Integration fold-down, and the remainder of the Local Models and Remote API fold-downs.
+Tier 2 (RSAI, OSINTINEL stubs) and Tier 3's Stone #1 substrate are likewise unassigned; Tier 3's
+Spectre tab has a live dashboard from S2.5 but its internals — benchmarks, history — begin at
+S3.75 and are otherwise unscoped.
+
+Adding a session number to any of these is a ratification, not a planning exercise.
+
 ## OUT OF SCOPE FOR THIS DOC
 Free/Pro plan structure (GZ-BT's own monetization is a separate decision), App Store
 listing, marketing site.
