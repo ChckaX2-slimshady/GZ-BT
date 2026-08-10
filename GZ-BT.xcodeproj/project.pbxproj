@@ -65,6 +65,7 @@
 		E9F2507456077E7F7D25C677 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 7E170FE3D3FDD0590488B366 /* MLXLLM */; };
 		EE06770F2D0863C945C5B3F2 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 8F679096050FC25D8AD5238A /* MLXLMCommon */; };
 		EEAE167F7B4D9EE969A3E48F /* ConversationListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70124C4A60E92FB70A99DDB6 /* ConversationListView.swift */; };
+		EEE2692B05D38A82E35275B9 /* SpectreLabIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77EBB19E8E2DEB486FCFE810 /* SpectreLabIntegrationTests.swift */; };
 		F17E067602AB78D683145DF8 /* ChameleonPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C324392BE91ECDDC631325D8 /* ChameleonPalette.swift */; };
 		F1EC4C7B969E222E83CB3AB6 /* TelemetryHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34586E3F58AF7B0D178A6B4B /* TelemetryHub.swift */; };
 /* End PBXBuildFile section */
@@ -111,6 +112,7 @@
 		70124C4A60E92FB70A99DDB6 /* ConversationListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationListView.swift; sourceTree = "<group>"; };
 		7058B078969247CE9822AEB9 /* ModelDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDiscoveryTests.swift; sourceTree = "<group>"; };
 		751122366E805D48313E55D3 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		77EBB19E8E2DEB486FCFE810 /* SpectreLabIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreLabIntegrationTests.swift; sourceTree = "<group>"; };
 		80A0E77463AEEE0C2EBC19DE /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		86A5E32FC5185AD14E7894D6 /* TelemetryHubTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryHubTests.swift; sourceTree = "<group>"; };
 		8C03780EDB30675C9D8B1EBA /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -243,6 +245,7 @@
 				7058B078969247CE9822AEB9 /* ModelDiscoveryTests.swift */,
 				8E549ED11450CBA1736847E2 /* ModelDownloadLiveTests.swift */,
 				ECA4E26ADBED6FB48D1295B3 /* ModelDownloadTests.swift */,
+				77EBB19E8E2DEB486FCFE810 /* SpectreLabIntegrationTests.swift */,
 				86A5E32FC5185AD14E7894D6 /* TelemetryHubTests.swift */,
 			);
 			path = Tests;
@@ -510,6 +513,7 @@
 				A1B4ECEDBF94F8FB79DAAEE0 /* ModelDiscoveryTests.swift in Sources */,
 				A753F8584FE9C95A705C40E5 /* ModelDownloadLiveTests.swift in Sources */,
 				832746D8DDBB7DEDC80A99A2 /* ModelDownloadTests.swift in Sources */,
+				EEE2692B05D38A82E35275B9 /* SpectreLabIntegrationTests.swift in Sources */,
 				46BFDAE7D458140CBE67492F /* TelemetryHubTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
