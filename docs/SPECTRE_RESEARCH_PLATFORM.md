@@ -17,10 +17,10 @@ of this repository's standing orders (CLAUDE.md gotchas #3 and #5).
 It is also the wrong order. The Surgery Spec's own Gotcha 9 says *Python-first,
 then Swift; don't do first-pass surgery in Xcode, the iteration tax will bury
 you.* The measurement instrument has therefore been **built and tested in
-Python** (`spectre/lab/`, 30/30 self-test checks). This document specifies the
+Python** (`spectre/lab/`, 33/33 self-test checks). This document specifies the
 read layer over it.
 
-**What already exists in Spectre** (built, tested, in PR):
+**What already exists in Spectre** (built, tested, merged in Spectre #5):
 
 | Piece | Where |
 |---|---|
@@ -155,6 +155,44 @@ Every module in the Spectre repository is currently one of those two.
 `ghostdagTopology`; `kvCompression` and `recall` require `kvEviction`. Turning a
 dependent on turns its dependency on, and says so. The Python registry already
 computes this closure; the Swift side mirrors the same table.
+
+### 3.4 The third badge — which question does this module answer?
+
+A settings screen shows what you can switch on. A *research* panel has to show
+what switching it on could settle. The registry now carries that as a first-class
+field, sourced from canon rather than from the laboratory's own opinion:
+`SPECTRE_IMPORTANCE_DNA_ADAPTIVE_K_REFERENCE_H_DESIGN_CONTRACT.md` §9 names four
+research priorities and closes *"no mechanism should become canonical before
+these questions are answered."*
+
+Each module exposes `answers[]` — zero or more of `signal_quality`, `transfer`,
+`integration`, `throughput` — or, when it answers none, an `infrastructure_note`
+saying why. `token_dna` is the clearest case: it is substrate, it answers nothing
+by itself, and it says so.
+
+The registry JSON also carries a top-level `open_questions` block:
+
+```json
+"open_questions": {
+  "throughput": {
+    "question": "Can any routing mechanism demonstrate measurable tokens/sec …",
+    "instruments": ["attention_routing", "compute_throughput",
+                    "kv_clustering", "speculative_decoding"],
+    "any_built": false
+  }
+}
+```
+
+**Render this, and render `any_built: false` prominently.** Two of canon's four
+questions currently have no built instrument — `transfer` and `throughput`. A
+panel that lists twelve switches without saying that half the research agenda has
+no instrument behind it is a more flattering picture than the truth.
+
+> **Normative.** The panel MUST NOT present a module as capable of settling a
+> question whose `any_built` is false. Spectre's own self-test enforces the
+> matching rule on the Python side: no *built* module may claim to settle
+> `throughput`, because the tok/s harness is Answer Sheet §8's step zero and is
+> not built. A smaller KV cache is not a throughput claim.
 
 ---
 
