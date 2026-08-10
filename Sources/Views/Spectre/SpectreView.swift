@@ -12,6 +12,17 @@ import SwiftUI
 struct SpectreView: View {
     @Environment(\.theme) private var theme
     let vm: SpectreViewModel
+    /// The research lab. Separate mode rather than a longer scroll: the live seam
+    /// view above is S2.5's falsification test and stays exactly what it was.
+    let lab: SpectreLabViewModel
+
+    /// Which half of the tab is showing.
+    private enum Mode: String, CaseIterable, Identifiable {
+        case live = "Live", laboratory = "Lab"
+        var id: String { rawValue }
+    }
+
+    @State private var mode: Mode = .live
 
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: Space.md)]
 
@@ -20,16 +31,29 @@ struct SpectreView: View {
             theme.canopyWash.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: Space.lg) {
-                    header
-                    readouts
-                    throughput
-                    contextMeter
-                    eventLog
+                    modePicker
+                    switch mode {
+                    case .live:
+                        header
+                        readouts
+                        throughput
+                        contextMeter
+                        eventLog
+                    case .laboratory:
+                        SpectreLabView(vm: lab)
+                    }
                 }
                 .padding(Space.lg)
             }
         }
         .navigationTitle("Spectre")
+    }
+
+    private var modePicker: some View {
+        Picker("Mode", selection: $mode) {
+            ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .pickerStyle(.segmented)
     }
 
     // MARK: - Header

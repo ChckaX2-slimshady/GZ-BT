@@ -36,7 +36,8 @@ struct RootNavigationView: View {
             // Reachable only while the global toggle is on; the sidebar hides the row
             // otherwise. Falling back to the placeholder keeps a stale selection safe.
             if env.settings.spectreEnabled {
-                SpectreView(vm: SpectreViewModel(telemetry: env.telemetry))
+                SpectreView(vm: SpectreViewModel(telemetry: env.telemetry),
+                            lab: env.spectreLab)
             } else {
                 PlaceholderView(route: route)
             }

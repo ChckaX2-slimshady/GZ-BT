@@ -11,17 +11,20 @@
 		08A83D1F5088809968EAE747 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C72F9B7EEED30558BA9ED4C6 /* SettingsView.swift */; };
 		0C493541E7B47E1198D7DDF9 /* GZBTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFF44B1DD6798C33418276F3 /* GZBTApp.swift */; };
 		0FB722A7D6F4A51366223B98 /* ChatSliceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A84A140FF29D22B7E63F37F /* ChatSliceTests.swift */; };
+		124DFFF92502409BD98A76F8 /* SpectreLabViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12421AB34115D053624C369 /* SpectreLabViewModel.swift */; };
 		126D11679C884CB35B257FDB /* ConversationDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BE1904D8A631827B2FEB2F /* ConversationDatabase.swift */; };
 		17B94E8487211F66F3BBC67A /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 751122366E805D48313E55D3 /* Typography.swift */; };
 		17FC406B4F17D00772DF7A31 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A67A0A8F287E6A91FD2DD4D5 /* ChatView.swift */; };
 		1FEACCE8C0431BC768D4AF05 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A0E77463AEEE0C2EBC19DE /* ChatMessage.swift */; };
 		205E3383D17F9CB9AE7C1141 /* ConversationStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFD88888F57781A60687430D /* ConversationStoreTests.swift */; };
+		3799FCDCDAD40B06CEE83E50 /* SpectreLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B446E8B90B7B684710C578 /* SpectreLabView.swift */; };
 		3DB56D27E9D5DBBA58B8DAB9 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9B69A25ADEB2E731FDB29BD /* Theme.swift */; };
 		42A0606F866FB3111891EEB1 /* MessageTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F2AB4D45C8261049C517CE0 /* MessageTelemetry.swift */; };
 		44C742AD68A0558F48D40DB4 /* ModelDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 461D71953DF343861DC38E1C /* ModelDownloader.swift */; };
 		46BFDAE7D458140CBE67492F /* TelemetryHubTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A5E32FC5185AD14E7894D6 /* TelemetryHubTests.swift */; };
 		5362A82CD67323DC13C5B682 /* Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0872A4E3D4F41A8B7A07DAC /* Layout.swift */; };
 		55077BF370C51CA664692A82 /* AppRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE3DC3C968FA25A9FE602967 /* AppRoute.swift */; };
+		58DC4E695B021D7EEB4150F0 /* SpectreLabModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44634E229E250C692A00C1BD /* SpectreLabModule.swift */; };
 		5A46D1CB51CF4302820F69F0 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF07E1B947298E840E3BFDD2 /* ChatViewModel.swift */; };
 		609F570BC0BACA5DED682141 /* RootNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BA3D1A60C03A3A59C079FC8 /* RootNavigationView.swift */; };
 		68E67680702D48605DF8319D /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21288CEB036B8622411C52C7 /* SidebarView.swift */; };
@@ -49,6 +52,7 @@
 		CC7C4D38A4BD99A05706D1EE /* PersistedMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27376A846C0F5B4C18BBBB9C /* PersistedMessage.swift */; };
 		D046752AFEAEFEAF1789B040 /* ModelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02F77F7FB0994A7AB8E1DCE6 /* ModelsViewModel.swift */; };
 		D0CBD69D8AAD2929EE4D4300 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65D865C1D44BA606BCD99C7B /* SQLite.swift */; };
+		D13ED170AC85A3D04AFA6C08 /* SpectreDNA.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDD6D9558B499D1AA913C48F /* SpectreDNA.swift */; };
 		D2A2C98FF7949230221C7FD7 /* Materials.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4489EB30A556E178E48FD3F7 /* Materials.swift */; };
 		D364690BDDA994B01BDDB64C /* InferenceSpikeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BD0E02CAAE569DB8466F068 /* InferenceSpikeTests.swift */; };
 		D4C854A66BF00D53F72F80D9 /* ChatMetricsBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBAD6870C5B6D7A14905C31 /* ChatMetricsBar.swift */; };
@@ -89,6 +93,7 @@
 		3BA3D1A60C03A3A59C079FC8 /* RootNavigationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootNavigationView.swift; sourceTree = "<group>"; };
 		3F2AB4D45C8261049C517CE0 /* MessageTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTelemetry.swift; sourceTree = "<group>"; };
 		43DFDA146E44D31F033138C2 /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		44634E229E250C692A00C1BD /* SpectreLabModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreLabModule.swift; sourceTree = "<group>"; };
 		4489EB30A556E178E48FD3F7 /* Materials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Materials.swift; sourceTree = "<group>"; };
 		461D71953DF343861DC38E1C /* ModelDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloader.swift; sourceTree = "<group>"; };
 		499497C6DD52A3320736E4BE /* ChatMessageRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageRow.swift; sourceTree = "<group>"; };
@@ -114,6 +119,7 @@
 		A23068F8B9412D667AE3EC29 /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		A366705C4A574B4766A81DA1 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		A67A0A8F287E6A91FD2DD4D5 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		A9B446E8B90B7B684710C578 /* SpectreLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreLabView.swift; sourceTree = "<group>"; };
 		AE3DC3C968FA25A9FE602967 /* AppRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoute.swift; sourceTree = "<group>"; };
 		AFF44B1DD6798C33418276F3 /* GZBTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GZBTApp.swift; sourceTree = "<group>"; };
 		B104634F7C8495475B1D449D /* SpectreViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreViewModel.swift; sourceTree = "<group>"; };
@@ -126,11 +132,13 @@
 		D5EE574B15B0B296A3A85E19 /* MLXInferenceEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLXInferenceEngine.swift; sourceTree = "<group>"; };
 		D9B69A25ADEB2E731FDB29BD /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		DF07E1B947298E840E3BFDD2 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		E12421AB34115D053624C369 /* SpectreLabViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreLabViewModel.swift; sourceTree = "<group>"; };
 		E784D02C713B426448287CE1 /* SpectreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreView.swift; sourceTree = "<group>"; };
 		E790D8250821134F9A8AEC5F /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
 		EAD01C2E7067C09A2679EE18 /* ModelDownloadEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadEngine.swift; sourceTree = "<group>"; };
 		ECA4E26ADBED6FB48D1295B3 /* ModelDownloadTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadTests.swift; sourceTree = "<group>"; };
 		F8F6C2D21690DDA8A09C4C8A /* GZ-BTTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = "GZ-BTTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDD6D9558B499D1AA913C48F /* SpectreDNA.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectreDNA.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -152,6 +160,7 @@
 			children = (
 				DF07E1B947298E840E3BFDD2 /* ChatViewModel.swift */,
 				02F77F7FB0994A7AB8E1DCE6 /* ModelsViewModel.swift */,
+				E12421AB34115D053624C369 /* SpectreLabViewModel.swift */,
 				B104634F7C8495475B1D449D /* SpectreViewModel.swift */,
 			);
 			path = ViewModels;
@@ -202,6 +211,7 @@
 		4DF8E1B0B9484EAEA10489B0 /* Spectre */ = {
 			isa = PBXGroup;
 			children = (
+				A9B446E8B90B7B684710C578 /* SpectreLabView.swift */,
 				E784D02C713B426448287CE1 /* SpectreView.swift */,
 			);
 			path = Spectre;
@@ -219,6 +229,7 @@
 				5D26927450237D352AF56A56 /* ModelManifest.swift */,
 				27376A846C0F5B4C18BBBB9C /* PersistedMessage.swift */,
 				155329CDCBF4E1ADE37DFFA0 /* ResolvedModel.swift */,
+				44634E229E250C692A00C1BD /* SpectreLabModule.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -320,6 +331,7 @@
 				EAD01C2E7067C09A2679EE18 /* ModelDownloadEngine.swift */,
 				461D71953DF343861DC38E1C /* ModelDownloader.swift */,
 				CDC94933226DBD99FEB40099 /* ModelManager.swift */,
+				FDD6D9558B499D1AA913C48F /* SpectreDNA.swift */,
 				65D865C1D44BA606BCD99C7B /* SQLite.swift */,
 				50627C75633CDED19C6E2836 /* TelemetryAccumulator.swift */,
 				34586E3F58AF7B0D178A6B4B /* TelemetryHub.swift */,
@@ -474,6 +486,10 @@
 				D0CBD69D8AAD2929EE4D4300 /* SQLite.swift in Sources */,
 				08A83D1F5088809968EAE747 /* SettingsView.swift in Sources */,
 				68E67680702D48605DF8319D /* SidebarView.swift in Sources */,
+				D13ED170AC85A3D04AFA6C08 /* SpectreDNA.swift in Sources */,
+				58DC4E695B021D7EEB4150F0 /* SpectreLabModule.swift in Sources */,
+				3799FCDCDAD40B06CEE83E50 /* SpectreLabView.swift in Sources */,
+				124DFFF92502409BD98A76F8 /* SpectreLabViewModel.swift in Sources */,
 				B48B94A0D78DDC3B91CB4616 /* SpectreView.swift in Sources */,
 				B1C20A6CA15C763F60D80372 /* SpectreViewModel.swift in Sources */,
 				E1B0E708F8A6DA030783D85F /* StreamingIndicatorView.swift in Sources */,
