@@ -19,6 +19,11 @@ final class AppEnvironment {
     /// Single Seam-1 consumer, shared by Chat's metrics bar and the Spectre view.
     let telemetry: TelemetryHub
     let chat: ChatViewModel
+    /// The research lab's state. Held here for the same reason `chat` is: a
+    /// compiled Token DNA artifact costs a file read and a decode of the whole
+    /// vocabulary, and rebuilding this per-view would repeat that on every
+    /// navigation back to the tab.
+    let spectreLab: SpectreLabViewModel
 
     /// The engine's storage-facing identity. Lives here, not on `InferenceEngine`:
     /// adding a property to that protocol would amend the inference contract, which
@@ -51,6 +56,7 @@ final class AppEnvironment {
         self.chat = ChatViewModel(
             engine: engine, models: models, store: store,
             telemetry: telemetry, engineID: Self.engineID)
+        self.spectreLab = SpectreLabViewModel(models: models, settings: settings)
 
         // Subscribe at launch, not from a view. Spectre has to render live even if the
         // user never opens Chat, and the engine emits `.lifecycle(.idle)` at init.
