@@ -321,7 +321,28 @@ final class SpectreLabIntegrationTests: XCTestCase {
             return XCTFail("expected .failed, got \(vm.state)")
         }
         XCTAssertTrue(why.contains("1.99"), "the artifact version should be named: \(why)")
-        XCTAssertTrue(why.contains("1.0"), "the reader version should be named: \(why)")
+        XCTAssertTrue(why.contains("1.\(SpectreDNA.supportedSchemaMinor)"),
+                      "the reader version should be named: \(why)")
+    }
+
+    /// The minor the current compiler emits must load — not merely some minor
+    /// the reader once supported. Compiler 1.1.0 writes schema 1.1 because it
+    /// changed what `surface_bytes` and `char_len` hold for special tokens. A
+    /// reader still pinned to 1.0 refuses every artifact the toolchain now
+    /// produces, and the panel reports a version quarrel instead of a model.
+    /// Older minors keep loading: every other test in this file uses 1.0.
+    @MainActor
+    func testCurrentCompilerSchemaMinorLoads() async throws {
+        try makeModel(named: "current", withArtifact: true,
+                      schemaMinor: SpectreDNA.supportedSchemaMinor)
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+
+        await vm.load()
+
+        XCTAssertTrue(vm.isPresent,
+                      "schema 1.\(SpectreDNA.supportedSchemaMinor) must load: \(vm.state)")
+        XCTAssertEqual(vm.dna?.manifest.dnaSchemaMinor, SpectreDNA.supportedSchemaMinor)
     }
 
     // MARK: - Control architecture

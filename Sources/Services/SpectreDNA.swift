@@ -30,8 +30,16 @@ struct SpectreDNA: Sendable {
     /// Schema this build understands. A newer artifact is refused rather than
     /// half-read: fields are versioned, and guessing at an unknown one is how a
     /// consumer silently reads garbage.
+    ///
+    /// Minor 1 adds three header keys describing token surfaces
+    /// (`legacy_decode_suppressed`, `n_legacy_decode_suppressed`,
+    /// `n_empty_surface`). No array changed shape or dtype, and this reader
+    /// consumes none of the three — but the compiler that emits them also
+    /// changed what `surface_bytes` and `char_len` hold for special tokens,
+    /// which this reader very much does surface. Accepting 1.1 is a statement
+    /// that those values were checked, not that the keys were ignored.
     static let supportedSchemaMajor = 1
-    static let supportedSchemaMinor = 0
+    static let supportedSchemaMinor = 1
 
     static let directoryName = ".spectre-dna"
 
