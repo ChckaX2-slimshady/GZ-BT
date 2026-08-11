@@ -93,7 +93,8 @@ final class SpectreLabIntegrationTests: XCTestCase {
         {"model_type":"qwen3","tokenizer_kind":"tokenizers-json","tokenizer_algorithm":"bpe",
          "core_bytes_per_token":6,"num_layers":28,"num_heads":16,"num_kv_heads":8,
          "hidden_size":1024,"attention_kind":"gqa","quantized":true,"quant_method":"mlx",
-         "quant_bits":4,"advisory_load_mutable":{"max_position_embeddings":4096}}
+         "quant_bits":4,"advisory_load_mutable":{"max_position_embeddings":4096,
+          "rope_scaling":{"factor":32.0,"rope_type":"llama3"}}}
         """.utf8).write(to: dna.appending(path: "header.json"))
 
         // manifest.json LAST — its presence is the completeness contract.
@@ -155,15 +156,17 @@ final class SpectreLabIntegrationTests: XCTestCase {
         XCTAssertTrue(dna.hasCore)
 
         // Bit and enum decoding, against the frozen schema-v1 layout.
-        XCTAssertTrue(dna.flag(.isPunctOnly, at: 0), "bit 1 of 66 should be set")
-        XCTAssertTrue(dna.flag(.isNonAlnum, at: 0), "bit 6 of 66 should be set")
-        XCTAssertFalse(dna.flag(.isDigitRun, at: 0), "bit 0 of 66 should be clear")
-        XCTAssertTrue(dna.flag(.isEmoji, at: 3), "bit 7 of 128 should be set")
+        XCTAssertEqual(dna.flag(.isPunctOnly, at: 0), true, "bit 1 of 66 should be set")
+        XCTAssertEqual(dna.flag(.isNonAlnum, at: 0), true, "bit 6 of 66 should be set")
+        XCTAssertEqual(dna.flag(.isDigitRun, at: 0), false, "bit 0 of 66 should be clear")
+        XCTAssertEqual(dna.flag(.isEmoji, at: 3), true, "bit 7 of 128 should be set")
         XCTAssertEqual(dna.specialKind(at: 3), .eos)
         XCTAssertEqual(dna.specialKind(at: 0), .content)
 
         // Out-of-range access is refused rather than trapping.
-        XCTAssertFalse(dna.flag(.isEmoji, at: 99))
+        // nil, not false: an id the artifact does not cover is an absence, and a
+        // caller must be able to tell it from a token that lacks the flag.
+        XCTAssertNil(dna.flag(.isEmoji, at: 99))
         XCTAssertNil(dna.specialKind(at: 99))
 
         // And the panel's rows actually carry it.
@@ -189,6 +192,100 @@ final class SpectreLabIntegrationTests: XCTestCase {
         XCTAssertEqual(vm.specialKindDistribution.first(where: { $0.label == "eos" })?.count, 1)
         XCTAssertFalse(vm.specialKindDistribution.contains { $0.label == "content" },
                        "content would swamp the chart and is excluded by contract")
+    }
+
+    // MARK: - Refusing rather than fabricating
+    //
+    // Each of these pins a defect where the reader produced a complete,
+    // plausible, wrong answer instead of an error. That failure mode has a name
+    // in this project: SIGS-A §1.2/F7, where reading a packed embedding tensor
+    // yielded "a complete, plausible, entirely meaningless geometry report".
+
+    @MainActor
+    func testMissingCoreArrayIsRefusedNotRenderedAsZeros() async throws {
+        let dir = try makeModel(named: "gappy", withArtifact: true)
+        // The manifest still declares class_flags; delete only the file.
+        try FileManager.default.removeItem(
+            at: dir.appending(path: ".spectre-dna/core/class_flags.u8"))
+
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+        await vm.load()
+
+        XCTAssertFalse(vm.isPresent, "an incomplete artifact must not load")
+        guard case .failed(let why) = vm.state else {
+            return XCTFail("expected .failed, got \(vm.state)")
+        }
+        XCTAssertTrue(why.contains("class_flags"), "the missing field should be named: \(why)")
+        // The specific regression: an all-zero distribution reported as real.
+        XCTAssertTrue(vm.flagDistribution.isEmpty,
+                      "a fabricated distribution reached the panel")
+    }
+
+    @MainActor
+    func testTruncatedPolicyViewIsRefused() async throws {
+        let dir = try makeModel(named: "cutoff", withArtifact: true)
+        let viewURL = dir.appending(path: ".spectre-dna/views/legacy_v1.f32")
+        let full = try Data(contentsOf: viewURL)
+        try full.prefix(full.count / 2).write(to: viewURL)   // 2 of 4 floats
+
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+        await vm.load()
+
+        guard case .failed(let why) = vm.state else {
+            return XCTFail("a half-length view loaded; expected .failed, got \(vm.state)")
+        }
+        XCTAssertTrue(why.contains("2") && why.contains("4"),
+                      "both declared and found lengths should appear: \(why)")
+    }
+
+    @MainActor
+    func testStructuredAdvisoryValuesDoNotDiscardTheScalarOnes() async throws {
+        // The fixture carries `rope_scaling` (a dict) beside
+        // `max_position_embeddings` (an Int) — the shape every RoPE-scaled model
+        // actually produces. Typing the block [String: Int] threw on the dict
+        // and, swallowed by try?, discarded the whole block including the scalar.
+        try makeModel(named: "roped", withArtifact: true)
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+        await vm.load()
+
+        let advisory = try XCTUnwrap(vm.dna?.header.advisoryLoadMutable)
+        XCTAssertEqual(advisory["max_position_embeddings"], 4096,
+                       "the scalar was discarded by a sibling structured value")
+        XCTAssertEqual(vm.dna?.header.advisoryNonScalarKeys, ["rope_scaling"],
+                       "a structured key vanished without being named")
+    }
+
+    @MainActor
+    func testUnverifiableArtifactPairingSaysSo() async throws {
+        // Hand-copying a .spectre-dna directory is the documented workflow, so
+        // pairing the wrong two is an ordinary accident. Unflagged, the panel
+        // renders another model's genotype as this model's. The fixture records
+        // "deadbeef" — a sentinel, not a hash — so the honest verdict is
+        // "unverified", never "matches".
+        try makeModel(named: "unpaired", withArtifact: true)
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+        await vm.load()
+
+        XCTAssertFalse(vm.isDrifted)
+        XCTAssertEqual(vm.driftLabel, "unverified")
+        XCTAssertNotNil(vm.driftCaveat, "an unverifiable pairing must say so")
+    }
+
+    @MainActor
+    func testRepeatLoadKeepsTheArtifact() async throws {
+        try makeModel(named: "cached", withArtifact: true)
+        let (vm, models, _) = try await makeViewModel()
+        models.activeModelID = models.models[0].id
+
+        await vm.load()
+        let firstHash = vm.dna?.manifest.contentHash
+        await vm.load()   // the panel's .task fires again on every appearance
+        XCTAssertEqual(vm.dna?.manifest.contentHash, firstHash)
+        XCTAssertTrue(vm.isPresent, "the repeat load dropped the artifact")
     }
 
     // MARK: - Refusals

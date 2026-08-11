@@ -358,21 +358,52 @@ enum SpectreLabRegistry {
             }
         }
 
-        // Close over dependencies.
+        // Dependency resolution, in two monotone phases.
+        //
+        // The single interleaved loop this replaces did not terminate. With A
+        // requiring B, B available, and B requiring an unavailable C, it added B
+        // as A's dependency, removed A because C is unavailable, then re-added B
+        // because A still required it — forever, appending a note each pass. No
+        // current registry reaches that shape, but `resolution` is a @MainActor
+        // computed property the view body evaluates on every render, so the first
+        // two-level dependency added would freeze the UI rather than merely
+        // return the wrong answer.
+        //
+        // Splitting it fixes the oscillation by construction: phase 1 only ever
+        // removes, phase 2 only ever adds, so each is bounded by the module count.
+
+        // Phase 1 — drop anything that transitively needs something unbuilt.
         var changed = true
         while changed {
             changed = false
             for id in want.sorted() {
                 guard let m = module(id) else { continue }
-                for dep in m.requires.sorted() where !want.contains(dep) {
+                for dep in m.requires.sorted() {
                     guard let depModule = module(dep) else { continue }
-                    if depModule.isAvailable {
-                        want.insert(dep)
-                        notes.append("\(dep): enabled — required by \(id)")
-                    } else {
+                    // Unbuilt, or already dropped in an earlier pass for the
+                    // same reason — either way this module cannot run.
+                    if !depModule.isAvailable {
                         want.remove(id)
-                        notes.append("\(id): disabled — requires \(dep), which is \(depModule.status.rawValue)")
+                        notes.append("\(id): disabled — requires \(dep), which is "
+                                     + depModule.status.rawValue)
+                        changed = true
+                        break
                     }
+                }
+                if changed { break }
+            }
+        }
+
+        // Phase 2 — pull in the dependencies of what survived. Every dependency
+        // reachable from here is available, so this only grows and terminates.
+        changed = true
+        while changed {
+            changed = false
+            for id in want.sorted() {
+                guard let m = module(id) else { continue }
+                for dep in m.requires.sorted() where !want.contains(dep) {
+                    want.insert(dep)
+                    notes.append("\(dep): enabled — required by \(id)")
                     changed = true
                     break
                 }

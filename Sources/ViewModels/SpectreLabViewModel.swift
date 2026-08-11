@@ -76,13 +76,28 @@ final class SpectreLabViewModel {
 
     // MARK: - Loading
 
-    func load() async {
+    /// Which model the current `state` describes, so a repeat appearance does not
+    /// re-read the artifact.
+    private var loadedModelID: String?
+
+    /// Load the artifact for the active model, unless it is already loaded.
+    ///
+    /// `force` re-reads regardless — for a deliberate refresh after compiling an
+    /// artifact while the app is running.
+    func load(force: Bool = false) async {
         guard let model = models.activeModel else {
             state = .idle
+            loadedModelID = nil
             return
         }
+        // The panel's `.task` fires on every appearance, including each flip of
+        // the Live/Lab picker. Re-decoding 128k entries element-by-element every
+        // time defeats the reason this view model is long-lived at all.
+        if !force, loadedModelID == model.id, case .loaded = state { return }
+
         let url = model.url
         state = .loading
+        loadedModelID = model.id
         let started = Date()
 
         let outcome = await Task.detached(priority: .userInitiated) { () -> LoadOutcome in
@@ -207,7 +222,9 @@ final class SpectreLabViewModel {
             Row("core", "\(dna.header.coreBytesPerToken ?? 6) bytes / token"),
             Row("tokens classified", dna.tokensClassified.formatted(.number)),
             Row("artifact size", ByteFormat.string(dna.artifactBytes)),
-            Row("policy view", dna.priorViewID ?? "none materialised"),
+            Row("policy view", dna.priorViewID ?? "none",
+                caveat: dna.priorViewID == nil ? dna.priorViewAbsenceReason : nil),
+            Row("artifact matches model", driftLabel, caveat: driftCaveat),
             Row("load time", loadMilliseconds.map { String(format: "%.0f ms", $0) } ?? "—"),
         ]
     }
@@ -231,6 +248,36 @@ final class SpectreLabViewModel {
             .sorted { $0.key < $1.key }
             .map { Row($0.key, $0.value) }
     }
+
+    /// Whether the loaded artifact provably belongs to the active model.
+    ///
+    /// Surfaced because the documented workflow is hand-copying a `.spectre-dna`
+    /// directory, so pairing the wrong two is an ordinary accident. Without this
+    /// row a mismatched artifact renders as a healthy panel describing a
+    /// different model.
+    var driftLabel: String {
+        switch dna?.tokenizerDrift {
+        case .matches: "yes"
+        case .mismatch: "NO — WRONG MODEL"
+        case .notCheckable: "unverified"
+        case nil: "—"
+        }
+    }
+
+    var driftCaveat: String? {
+        switch dna?.tokenizerDrift {
+        case .matches(let file): "tokenizer fingerprint matches \(file)"
+        case .mismatch(let recorded, let found):
+            "this artifact was compiled from a different tokenizer (recorded "
+            + "\(recorded.prefix(12))…, found \(found)). The values below describe "
+            + "another model."
+        case .notCheckable(let why): why
+        case nil: nil
+        }
+    }
+
+    /// True when the panel is showing another model's genotype.
+    var isDrifted: Bool { dna?.tokenizerDrift.isMismatch ?? false }
 
     /// Non-empty buckets only — a zero bar carries no information.
     var flagDistribution: [SpectreDNA.Bucket] {
